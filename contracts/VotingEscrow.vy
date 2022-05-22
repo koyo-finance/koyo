@@ -11,9 +11,11 @@ interface ERC20:
     def approve(spender: address, amount: uint256) -> bool: nonpayable
     def transfer(to: address, amount: uint256) -> bool: nonpayable
     def transferFrom(spender: address, to: address, amount: uint256) -> bool: nonpayable
+    def burn(amount: uint256) -> bool: nonpayable
 
 interface Migrator:
     def migrateLock(addr: address, amount: uint256): nonpayable
+
 
 # Voting escrow to have time-weighted votes
 # Votes have a weight depending on time, so that users are committed
@@ -27,6 +29,9 @@ interface Migrator:
 #   |/
 # 0 +--------+------> time
 #       maxtime (1 year?)
+#
+# If at any point the user decides to forcefully withdraw they will do so at a 80% loss of their initial locked amount.
+# The 80% lost will be burnt and removed from circulation.
 
 struct Point:
     bias: int128
@@ -426,6 +431,38 @@ def withdraw():
     self._checkpoint(msg.sender, old_locked, _locked)
 
     assert ERC20(self.token).transfer(msg.sender, value)
+
+    log Withdraw(msg.sender, value, block.timestamp)
+    log Supply(supply_before, supply_before - value)
+
+
+@external
+@nonreentrant('lock')
+def force_withdraw():
+    assert self.migration == False
+    _locked: LockedBalance = self.locked[msg.sender]
+    assert block.timestamp < _locked.end, "LE"
+
+    time_left: uint256 = _locked.end - block.timestamp
+    penalty_ratio: uint256 = MULTIPLIER * 1 / 5
+
+    value: uint256 = convert(_locked.amount, uint256)
+
+    old_locked: LockedBalance = _locked
+    _locked.end = 0
+    _locked.amount = 0
+    self.locked[msg.sender] = _locked
+    supply_before: uint256 = self.supply
+    self.supply = supply_before - value
+
+    # old_locked can have either expired <= timestamp or zero end
+    # _locked has only 0 end
+    # Both can have >= 0 amount
+    self._checkpoint(msg.sender, old_locked, _locked)
+
+    penalty: uint256 = value * penalty_ratio / MULTIPLIER
+    assert ERC20(self.token).transfer(msg.sender, value - penalty)
+    assert ERC20(self.token).burn(penalty)
 
     log Withdraw(msg.sender, value, block.timestamp)
     log Supply(supply_before, supply_before - value)
