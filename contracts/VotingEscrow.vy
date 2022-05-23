@@ -14,7 +14,7 @@ interface ERC20:
     def burn(amount: uint256) -> bool: nonpayable
 
 interface Migrator:
-    def migrateLock(addr: address, amount: uint256): nonpayable
+    def migrate_lock(addr: address, amount: uint256): nonpayable
 
 
 # Voting escrow to have time-weighted votes
@@ -97,8 +97,10 @@ INCREASE_UNLOCK_TIME: constant(int128) = 3
 
 WEEK: constant(uint256) = 7 * 86400  # all future times are rounded by week
 MAXTIME: constant(uint256) = 7 * 4 * 12 * 86400  # 1 year
-MAXTIME_I128: constant(int128) = 7 * 4 * 12 * 86400  # 1 year
+MAXTIME_I128: immutable(int128)
 MULTIPLIER: constant(uint256) = 10 ** 18
+
+PENALTY_RATIO: constant(uint256) = MULTIPLIER * 1 / 5
 
 
 token: public(address)
@@ -134,6 +136,8 @@ migration: public(bool)
 
 @external
 def __init__(token_addr: address, _name: String[64], _symbol: String[32], _version: String[32]):
+    MAXTIME_I128 = convert(MAXTIME, int128)
+
     self.owner = msg.sender
 
     self.token = token_addr
@@ -156,6 +160,7 @@ def __init__(token_addr: address, _name: String[64], _symbol: String[32], _versi
 
 
 @internal
+@view
 def assert_is_owner(addr: address):
     assert addr == self.owner  # dev: owner only
 
@@ -342,6 +347,19 @@ def _deposit_for(_from: address, _addr: address, _value: uint256, unlock_time: u
     log Supply(supply_before, supply_before + _value)
 
 
+@internal
+def _create_lock_for(_from: address, _addr: address, _value: uint256, _unlock_time: uint256):
+    unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
+    _locked: LockedBalance = self.locked[_addr]
+
+    assert _value > 0  # dev: need non-zero value
+    assert _locked.amount == 0, "W"
+    assert unlock_time > block.timestamp, "LBF"
+    assert unlock_time <= block.timestamp + MAXTIME, "VLABT"
+
+    self._deposit_for(_from, _addr, _value, unlock_time, _locked, CREATE_LOCK_TYPE)
+
+
 @external
 @nonreentrant('lock')
 def deposit_for(_addr: address, _value: uint256):
@@ -359,15 +377,7 @@ def deposit_for(_addr: address, _value: uint256):
 def create_lock(_value: uint256, _unlock_time: uint256):
     self.assert_not_contract(msg.sender)
 
-    unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
-    _locked: LockedBalance = self.locked[msg.sender]
-
-    assert _value > 0  # dev: need non-zero value
-    assert _locked.amount == 0, "W"
-    assert unlock_time > block.timestamp, "LBF"
-    assert unlock_time <= block.timestamp + MAXTIME, "VLABT"
-
-    self._deposit_for(msg.sender, msg.sender, _value, unlock_time, _locked, CREATE_LOCK_TYPE)
+    self._create_lock_for(msg.sender, msg.sender, _value, _unlock_time)
 
 
 @external
@@ -375,15 +385,7 @@ def create_lock(_value: uint256, _unlock_time: uint256):
 def create_lock_for(_addr: address, _value: uint256, _unlock_time: uint256):
     self.assert_is_owner(msg.sender)
 
-    unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
-    _locked: LockedBalance = self.locked[_addr]
-
-    assert _value > 0  # dev: need non-zero value
-    assert _locked.amount == 0, "Withdraw old tokens first"
-    assert unlock_time > block.timestamp, "Can only lock until time in the future"
-    assert unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 4 years max"
-
-    self._deposit_for(msg.sender, _addr, _value, unlock_time, _locked, CREATE_LOCK_TYPE)
+    self._create_lock_for(msg.sender, _addr, _value, _unlock_time)
 
 
 @external
@@ -444,12 +446,10 @@ def withdraw():
 @external
 @nonreentrant('lock')
 def force_withdraw():
-    assert self.migration == False
+    assert self.migration == False  # dev: must not be migrating
+
     _locked: LockedBalance = self.locked[msg.sender]
     assert block.timestamp < _locked.end, "LE"
-
-    time_left: uint256 = _locked.end - block.timestamp
-    penalty_ratio: uint256 = MULTIPLIER * 1 / 5
 
     value: uint256 = convert(_locked.amount, uint256)
 
@@ -465,7 +465,7 @@ def force_withdraw():
     # Both can have >= 0 amount
     self._checkpoint(msg.sender, old_locked, _locked)
 
-    penalty: uint256 = value * penalty_ratio / MULTIPLIER
+    penalty: uint256 = value * PENALTY_RATIO / MULTIPLIER
     assert ERC20(self.token).transfer(msg.sender, value - penalty)
     assert ERC20(self.token).burn(penalty)
 
@@ -484,7 +484,7 @@ def migrate():
     value: uint256 = convert(_locked.amount, uint256)
 
     ERC20(self.token).approve(self.next_ve_contract, value)
-    Migrator(self.next_ve_contract).migrateLock(msg.sender, value)
+    Migrator(self.next_ve_contract).migrate_lock(msg.sender, value)
 
     old_locked: LockedBalance = _locked
     _locked.end = 0
