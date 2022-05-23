@@ -127,8 +127,8 @@ future_owner: public(address)
 controller: public(address)
 transfersEnabled: public(bool)
 
-future_smart_wallet_checker: public(address)
 smart_wallet_checker: public(address)
+future_smart_wallet_checker: public(address)
 
 next_ve_contract: public(address)
 queued_next_ve_contract: public(address)
