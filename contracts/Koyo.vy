@@ -10,34 +10,99 @@ event Transfer:
     _from: indexed(address)
     _to: indexed(address)
     _value: uint256
-
 event Approval:
     _owner: indexed(address)
     _spender: indexed(address)
     _value: uint256
 
+event Mint:
+    minter: indexed(address)
+    recipient: indexed(address)
+    amount: uint256
+    previous_total_supply: uint256
+    new_total_supply: uint256
+
+event SetOwnership:
+    owner: indexed(address)
+event SetMinter:
+    minter: indexed(address)
+
+
+YEAR: constant(uint256) = 365 * 86400
+
+EMISSION_DURATION: constant(uint256) = 5 * YEAR
+EMISSION_AMOUNT: constant(uint256) = 6_149_520_000
+
 
 name: public(String[64])
 symbol: public(String[32])
-decimals: public(uint8)
+decimals: public(uint256)
 
 total_supply: uint256
 
 balanceOf: public(HashMap[address, uint256])
 allowances: HashMap[address, HashMap[address, uint256]]
 
+emission_end: public(uint256)
+emission_rate: public(uint256)
+
+emissions_generated: public(uint256)
+emissions_last_update_time: public(uint256)
+
+owner: public(address)  # Can and will be a smart contract
+future_owner: public(address)
+
+minter: public(address)  # Can and will be a smart contract
+future_minter: public(address)
+
 
 @external
-def __init__(_name: String[64], _symbol: String[32], _decimals: uint8):
+def __init__(_name: String[64], _symbol: String[32], _decimals: uint256):
     """
     @notice Contract constructor
     @param _name Token full name
     @param _symbol Token symbol
     @param _decimals Number of decimals for token
     """
+    ts: uint256 = block.timestamp
+
+    self.owner = msg.sender
+    self.minter = msg.sender
+
     self.name = _name
     self.symbol = _symbol
     self.decimals = _decimals
+
+    self.emission_end = ts + EMISSION_DURATION
+    self.emission_rate = (EMISSION_AMOUNT * 10 ** _decimals) / EMISSION_DURATION
+
+    self.emissions_generated = 0
+    self.emissions_last_update_time = ts
+
+
+@internal
+@view
+def assert_is_owner(addr: address):
+    assert addr == self.owner  # dev: owner only
+
+
+@internal
+@view
+def assert_is_minter(addr: address):
+    assert addr == self.minter  # dev: minter only
+
+
+@internal
+def _update_emissions() -> uint256:
+    total: uint256 = self.emissions_generated
+
+    last_time: uint256 = min(block.timestamp, self.emission_end)
+    total += (last_time - self.emissions_last_update_time) * self.emission_rate
+
+    self.emissions_generated = total
+    self.emissions_last_update_time = last_time
+
+    return total
 
 
 @external
@@ -83,11 +148,11 @@ def transfer(_to : address, _value : uint256) -> bool:
 @external
 def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
     """
-     @notice Transfer `_value` tokens from `_from` to `_to`
-     @param _from address The address which you want to send tokens from
-     @param _to address The address which you want to transfer to
-     @param _value uint256 the amount of tokens to be transferred
-     @return bool success
+    @notice Transfer `_value` tokens from `_from` to `_to`
+    @param _from address The address which you want to send tokens from
+    @param _to address The address which you want to transfer to
+    @param _value uint256 the amount of tokens to be transferred
+    @return bool success
     """
     assert _to != ZERO_ADDRESS  # dev: transfers to 0x0 are not allowed
     # NOTE: vyper does not allow underflows
@@ -121,6 +186,23 @@ def approve(_spender : address, _value : uint256) -> bool:
 
 
 @external
+def mint_available(_to: address) -> bool:
+    self.assert_is_minter(msg.sender)
+    assert _to != ZERO_ADDRESS  # dev: zero address
+
+    amount: uint256 = self._update_emissions()
+    _total_supply: uint256 = self.total_supply
+    self.total_supply = _total_supply + amount
+
+    self.balanceOf[_to] += amount
+
+    log Transfer(ZERO_ADDRESS, _to, amount)
+    log Mint(msg.sender, _to, amount, _total_supply, self.total_supply)
+
+    return True
+
+
+@external
 def burn(_value: uint256) -> bool:
     """
     @notice Burn `_value` tokens belonging to `msg.sender`
@@ -134,3 +216,43 @@ def burn(_value: uint256) -> bool:
     log Transfer(msg.sender, ZERO_ADDRESS, _value)
 
     return True
+
+
+@external
+def set_minter(_minter: address):
+    """
+    @notice Set the minter address
+    @param _minter Address of the minter
+    """
+    self.assert_is_owner(msg.sender)
+
+    self.minter = _minter
+
+    log SetMinter(_minter)
+
+
+@external
+def set_owner(_owner: address):
+    """
+    @notice Set the new owner.
+    @param _owner New owner address
+    """
+    self.assert_is_owner(msg.sender)
+
+    self.owner = _owner
+
+    log SetOwnership(_owner)
+
+
+@external
+def set_name(_name: String[64], _symbol: String[32]):
+    """
+    @notice Change the token name and symbol to `_name` and `_symbol`
+    @dev Only callable by the admin account
+    @param _name New token name
+    @param _symbol New token symbol
+    """
+    self.assert_is_owner(msg.sender)
+
+    self.name = _name
+    self.symbol = _symbol
