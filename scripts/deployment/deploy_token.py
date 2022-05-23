@@ -1,4 +1,5 @@
 import json
+from . import deployment_config as config
 
 from brownie import (
     Koyo,
@@ -6,8 +7,6 @@ from brownie import (
     SmartWalletWhitelist,
     VotingEscrow,
 )
-
-from . import deployment_config as config
 
 
 ADDRESSES_EMISSION = [] # 1
@@ -18,7 +17,7 @@ ADDRESSES_BOBA_BAR = [] # 1
 
 
 def live_part_one():
-    deploy_part_one(config._tx_params, config.DEPLOYMENTS_JSON)
+    deploy_part_one(config.tx_params, config.DEPLOYMENTS_JSON)
 
 
 def live_part_two():
@@ -29,18 +28,18 @@ def live_part_two():
     voting_escrow = VotingEscrow.at(deployments["VotingEscrow"])
 
     deploy_part_two(
-        token, voting_escrow, config._tx_params, config.DEPLOYMENTS_JSON
+        token, voting_escrow, config.tx_params, config.DEPLOYMENTS_JSON
     )
 
 
 def deploy_part_one(_tx_params, deployments_json=None):
-    token = Koyo.deploy("Koyo Token", "KYO", 18, _tx_params(None, 5_000_000))
+    token = Koyo.deploy("Koyo Token", "KYO", 18, _tx_params(5_000_000))
     voting_escrow = VotingEscrow.deploy(
         token,
         "Vote-escrowed KYO",
         "veKYO",
         "veKYO_1.0.0",
-        _tx_params(None, 5_000_000),
+        _tx_params(5_000_000),
     )
 
     deployments = {
@@ -57,7 +56,7 @@ def deploy_part_one(_tx_params, deployments_json=None):
 
 
 def deploy_part_two(token, voting_escrow, _tx_params, deployments_json=None):
-    smart_wallet_whitelist = SmartWalletWhitelist.deploy(_tx_params(None, 5_000_000))
+    smart_wallet_whitelist = SmartWalletWhitelist.deploy(_tx_params(5_000_000))
     minter = Minter.deploy(
         token,
         ADDRESSES_EMISSION,
@@ -65,13 +64,13 @@ def deploy_part_two(token, voting_escrow, _tx_params, deployments_json=None):
         ADDRESSES_TEAM_MEMBERS,
         ADDRESSES_ADVISORS,
         ADDRESSES_BOBA_BAR,
-        _tx_params(None, 5_000_000)
+        _tx_params(5_000_000)
     )
 
-    token.set_minter(minter, _tx_params(None, 5_000_000))
+    token.set_minter(minter, _tx_params(5_000_000))
 
-    voting_escrow.commit_smart_wallet_checker(smart_wallet_whitelist, _tx_params(None, 5_000_000))
-    voting_escrow.apply_smart_wallet_checker(_tx_params(None, 5_000_000))
+    voting_escrow.commit_smart_wallet_checker(smart_wallet_whitelist, _tx_params(5_000_000))
+    voting_escrow.apply_smart_wallet_checker(_tx_params(5_000_000))
 
     deployments = {
         "Koyo": token.contract_address,
