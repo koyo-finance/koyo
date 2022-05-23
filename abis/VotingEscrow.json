@@ -110,6 +110,33 @@
     "type": "event"
   },
   {
+    "name": "PenaltyApplied",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "penalty",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "ts",
+        "type": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
     "name": "CommitOwnership",
     "inputs": [
       {
@@ -346,6 +373,13 @@
     "stateMutability": "nonpayable",
     "type": "function",
     "name": "withdraw",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "force_withdraw",
     "inputs": [],
     "outputs": []
   },

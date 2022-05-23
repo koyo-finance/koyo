@@ -68,6 +68,11 @@ event Withdraw:
     provider: indexed(address)
     value: uint256
     ts: uint256
+event PenaltyApplied:
+    provider: indexed(address)
+    value: uint256
+    penalty: uint256
+    ts: uint256
 
 event CommitOwnership:
     owner: indexed(address)
@@ -465,6 +470,7 @@ def force_withdraw():
     assert ERC20(self.token).burn(penalty)
 
     log Withdraw(msg.sender, value, block.timestamp)
+    log PenaltyApplied(msg.sender, value, penalty, block.timestamp)
     log Supply(supply_before, supply_before - value)
 
 
