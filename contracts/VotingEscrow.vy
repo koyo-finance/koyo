@@ -95,9 +95,10 @@ CREATE_LOCK_TYPE: constant(int128) = 1
 INCREASE_LOCK_AMOUNT: constant(int128) = 2
 INCREASE_UNLOCK_TIME: constant(int128) = 3
 
-WEEK: constant(uint256) = 7 * 86400  # all future times are rounded by week
-MAXTIME: constant(uint256) = 7 * 4 * 12 * 86400  # 1 year
-MAXTIME_I128: immutable(int128)
+DAY: constant(uint256) = 86400  # 1 day
+WEEK: constant(uint256) = 7 * DAY  # all future times are rounded by week
+MAXTIME: constant(uint256) = 365 * DAY  # 1 year
+MAXTIME_I128: constant(int128) = 365 * DAY  # 1 year
 MULTIPLIER: constant(uint256) = 10 ** 18
 
 PENALTY_RATIO: constant(uint256) = MULTIPLIER * 1 / 5
@@ -136,8 +137,6 @@ migration: public(bool)
 
 @external
 def __init__(token_addr: address, _name: String[64], _symbol: String[32], _version: String[32]):
-    MAXTIME_I128 = convert(MAXTIME, int128)
-
     self.owner = msg.sender
 
     self.token = token_addr
