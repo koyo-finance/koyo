@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
 		runOnCompile: true,
 		clear: true,
 		flat: true,
-		only: ['VotingEscrow', 'SmartWalletWhitelist', 'Koyo']
+		only: ['Koyo', 'Minter', 'SmartWalletWhitelist', 'VotingEscrow']
 	}
 };
 

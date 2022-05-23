@@ -186,6 +186,42 @@ def approve(_spender : address, _value : uint256) -> bool:
 
 
 @external
+def increaseAllowance(_spender: address, _added_value: uint256) -> bool:
+    """
+    @notice Increase the allowance granted to `_spender` by the caller
+    @dev This is alternative to {approve} that can be used as a mitigation for
+         the potential race condition
+    @param _spender The address which will transfer the funds
+    @param _added_value The amount of to increase the allowance
+    @return bool success
+    """
+    allowance: uint256 = self.allowances[msg.sender][_spender] + _added_value
+    self.allowances[msg.sender][_spender] = allowance
+
+    log Approval(msg.sender, _spender, allowance)
+
+    return True
+
+
+@external
+def decreaseAllowance(_spender: address, _subtracted_value: uint256) -> bool:
+    """
+    @notice Decrease the allowance granted to `_spender` by the caller
+    @dev This is alternative to {approve} that can be used as a mitigation for
+         the potential race condition
+    @param _spender The address which will transfer the funds
+    @param _subtracted_value The amount of to decrease the allowance
+    @return bool success
+    """
+    allowance: uint256 = self.allowances[msg.sender][_spender] - _subtracted_value
+    self.allowances[msg.sender][_spender] = allowance
+
+    log Approval(msg.sender, _spender, allowance)
+
+    return True
+
+
+@external
 def mint_available(_to: address) -> bool:
     self.assert_is_minter(msg.sender)
     assert _to != ZERO_ADDRESS  # dev: zero address
