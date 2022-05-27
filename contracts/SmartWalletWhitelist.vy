@@ -1,4 +1,9 @@
 # @version 0.3.3
+"""
+@title SmartWalletWhitelist
+@author Kōyō Finance
+@license MIT
+"""
 
 
 interface SmartWalletChecker:
@@ -35,6 +40,9 @@ future_checker: public(address)
 
 @external
 def __init__():
+    """
+    @notice Contract constructor.
+    """
     self.owner = msg.sender
     self.checker = ZERO_ADDRESS
 
@@ -46,6 +54,10 @@ def assert_is_owner(addr: address):
 
 @external
 def approve_wallet(wallet: address):
+    """
+    @notice Allows a smartcontract to execute actions gated by the "SmartWalletWhitelist" check function.
+    @param wallet The address that should be approved for interactions.
+    """
     self.assert_is_owner(msg.sender)
 
     self.wallets[wallet] = True
@@ -55,6 +67,10 @@ def approve_wallet(wallet: address):
 
 @external
 def revoke_wallet(wallet: address):
+    """
+    @notice Revokes a smartcontracts priviledge to execute actions gated by the "SmartWalletWhitelist" check function.
+    @param wallet The address that their interaction privilidges revoked.
+    """
     self.assert_is_owner(msg.sender)
 
     self.wallets[wallet] = False
@@ -64,6 +80,10 @@ def revoke_wallet(wallet: address):
 
 @external
 def check(wallet: address) -> bool:
+    """
+    @notice Checks if `wallet` is whitelisted.
+    @param wallet The address whichs whitelist status should be checked.
+    """
     _check: bool = self.wallets[wallet]
 
     if _check == True:
@@ -76,6 +96,10 @@ def check(wallet: address) -> bool:
 
 @external
 def commit_transfer_ownership(addr: address):
+    """
+    @notice Transfer ownership of the "Minter" contract to `addr`.
+    @param addr Address to have ownership transferred to.
+    """
     self.assert_is_owner(msg.sender)
 
     self.future_owner = addr
@@ -85,6 +109,9 @@ def commit_transfer_ownership(addr: address):
 
 @external
 def apply_transfer_ownership():
+    """
+    @notice Apply ownership transfer.
+    """
     self.assert_is_owner(msg.sender)
 
     _owner: address = self.future_owner
@@ -98,6 +125,10 @@ def apply_transfer_ownership():
 
 @external
 def commit_checker(addr: address):
+    """
+    @notice Set another chained checker to `addr`.
+    @param addr Address to which check calls should be chained.
+    """
     self.assert_is_owner(msg.sender)
 
     self.future_checker = addr
@@ -107,6 +138,9 @@ def commit_checker(addr: address):
 
 @external
 def apply_checker():
+    """
+    @notice Apply chained checker.
+    """
     self.assert_is_owner(msg.sender)
 
     _checker: address = self.future_checker

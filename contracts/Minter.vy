@@ -1,4 +1,15 @@
 # @version 0.3.3
+"""
+@title Koyo Minter and Distributooooor
+@author Kōyō Finance
+@license MIT
+@dev KYO tokens claimed by the minter are split between 9 addresses.
+    - 64% go to an emissions distributor contract;
+    - 10% go to the treasury;
+    - 6% go to each of the 4 team members;
+    - 0.5% go to each of the 2 advisors;
+    - 1% goes to the BobaBAR.
+"""
 
 
 from vyper.interfaces import ERC20
@@ -59,6 +70,15 @@ def __init__(
     _addresses_advisors: address[2],
     _addresses_boba_bar: address[1]
 ):
+    """
+    @notice Contract constructor.
+    @param _token `Koyo` (KYO) token address.
+    @param _addresses_emission Address of the emissions distributor.
+    @param _addresses_treasury Address of the Kōyō Finance treasury.
+    @param _addresses_team_members Addresses of all team members.
+    @param _addresses_advisors Addresses of the 2 participating advisors.
+    @param _addresses_boba_bar Address of the BobaBAR or BobaDAO.
+    """
     self.owner = msg.sender
 
     self.token = _token
@@ -92,17 +112,17 @@ def _distribute_balance():
     for emission_address in self.addresses_emission:
         assert _token.transfer(emission_address, emission_amount)
 
-    for emission_address in self.addresses_treasury:
-        assert _token.transfer(emission_address, treasury_amount)
+    for treasury_address in self.addresses_treasury:
+        assert _token.transfer(treasury_address, treasury_amount)
 
-    for emission_address in self.addresses_team_members:
-        assert _token.transfer(emission_address, team_member_amount)
+    for team_member_address in self.addresses_team_members:
+        assert _token.transfer(team_member_address, team_member_amount)
 
-    for emission_address in self.addresses_advisors:
-        assert _token.transfer(emission_address, advisor_amount)
+    for advisor_address in self.addresses_advisors:
+        assert _token.transfer(advisor_address, advisor_amount)
 
-    for emission_address in self.addresses_boba_bar:
-        assert _token.transfer(emission_address, boba_bar_amount)
+    for boba_bar_address in self.addresses_boba_bar:
+        assert _token.transfer(boba_bar_address, boba_bar_amount)
 
     log Distribute(_balance)
 
@@ -121,16 +141,28 @@ def _mint_available():
 
 @external
 def distribute_balance():
+    """
+    @notice Distributes the "Minter" contracts KYO balance to addresses_emission, addresses_treasury, addresses_team_members, addresses_advisors, and addresses_boba_bar.
+    @dev Anyone is allowed to trigger this as the distribution targets are stored in the contract and cannot be influenced externally.
+    """
     self._distribute_balance()
 
 
 @external
 def mint_available():
+    """
+    @notice Mint any available tokens from the underlying "Koyo" contract.
+    @dev Anyone is allowed to trigger this as the mint target is the "Minter" contract itself.
+    """
     self._mint_available()
 
 
 @external
 def mint_and_distribute():
+    """
+    @notice Mint any available tokens from the underlying "Koyo" (KYO) contract and distribute the "Minter" contracts balance to addresses_emission, addresses_treasury, addresses_team_members, addresses_advisors, and addresses_boba_bar.
+    @dev Anyone is allowed to trigger this as the mint target is the "Minter" contract itself and distribution targets are stored in the contract.
+    """
     self._mint_available()
     self._distribute_balance()
 
@@ -143,6 +175,15 @@ def set_addresses(
     _addresses_advisors: address[2],
     _addresses_boba_bar: address[1]
 ):
+    """
+    @notice Sets new distribution addresses.
+    @dev All arrays of addresses have to be passed. If a address should stay the same it just needs to be passed again.
+    @param _addresses_emission Address of the emissions distributor.
+    @param _addresses_treasury Address of the Kōyō Finance treasury.
+    @param _addresses_team_members Addresses of all team members.
+    @param _addresses_advisors Addresses of the 2 participating advisors.
+    @param _addresses_boba_bar Address of the BobaBAR or BobaDAO.
+    """
     self.assert_is_owner(msg.sender)
 
     self.addresses_emission = _addresses_emission
@@ -154,6 +195,10 @@ def set_addresses(
 
 @external
 def commit_transfer_ownership(addr: address):
+    """
+    @notice Transfer ownership of the "Minter" contract to `addr`.
+    @param addr Address to have ownership transferred to.
+    """
     self.assert_is_owner(msg.sender)
 
     self.future_owner = addr
@@ -163,6 +208,9 @@ def commit_transfer_ownership(addr: address):
 
 @external
 def apply_transfer_ownership():
+    """
+    @notice Apply ownership transfer.
+    """
     self.assert_is_owner(msg.sender)
 
     _owner: address = self.future_owner
