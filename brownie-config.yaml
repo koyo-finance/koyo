@@ -1,0 +1,4 @@
+networks:
+  development:
+    cmd_settings:
+      accounts: 50
