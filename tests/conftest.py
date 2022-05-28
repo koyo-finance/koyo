@@ -2,8 +2,13 @@ import pytest
 
 
 @pytest.fixture(scope="module")
+def smart_wallet_whitelist(SmartWalletWhitelist, accounts):
+    yield SmartWalletWhitelist.deploy({"from": accounts[0]})
+
+
+@pytest.fixture(scope="module")
 def koyo(Koyo, accounts):
-    yield Koyo.deploy("Koyo", "KYO", 18, {"from": accounts[0]})
+    yield Koyo.deploy("Kōyō Token", "KYO", 18, {"from": accounts[0]})
 
 
 @pytest.fixture(scope="module")

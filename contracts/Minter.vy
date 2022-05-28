@@ -4,11 +4,11 @@
 @author Kōyō Finance
 @license MIT
 @dev KYO tokens claimed by the minter are split between 9 addresses.
-    - 64% go to an emissions distributor contract;
-    - 10% go to the treasury;
-    - 6% go to each of the 4 team members;
-    - 0.5% go to each of the 2 advisors;
-    - 1% goes to the BobaBAR.
+        - 64% go to an emissions distributor contract;
+        - 10% go to the treasury;
+        - 6% go to each of the 4 team members;
+        - 0.5% go to each of the 2 advisors;
+        - 1% goes to the BobaBAR.
 """
 
 

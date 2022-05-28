@@ -39,7 +39,7 @@ def live_part_two():
 
 
 def deploy_part_one(_tx_params, deployments_json=None):
-    token = Koyo.deploy("Koyo Token", "KYO", 18, _tx_params(5_000_000))
+    token = Koyo.deploy("Kōyō Token", "KYO", 18, _tx_params(5_000_000))
     voting_escrow = VotingEscrow.deploy(
         token,
         "Vote-escrowed KYO",

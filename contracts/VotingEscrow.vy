@@ -204,7 +204,7 @@ def assert_not_contract(addr: address):
 def get_last_user_slope(addr: address) -> int128:
     """
     @notice Get the most recently recorded rate of voting power decrease for `addr`.
-    @dev Returns 0 if the contracted has entered a migration.
+    @dev Returns 0 if the contract has entered a migration.
     @param addr Address of the user wallet.
     @return Value of the slope.
     """
@@ -220,7 +220,7 @@ def get_last_user_slope(addr: address) -> int128:
 def user_point_history__ts(_addr: address, _idx: uint256) -> uint256:
     """
     @notice Get the timestamp for checkpoint `_idx` for `_addr`.
-    @dev Returns 0 if the contracted has entered a migration.
+    @dev Returns 0 if the contract has entered a migration.
     @param _addr User wallet address.
     @param _idx User epoch number.
     @return Epoch time of the checkpoint.
@@ -236,7 +236,7 @@ def user_point_history__ts(_addr: address, _idx: uint256) -> uint256:
 def locked__end(_addr: address) -> uint256:
     """
     @notice Get timestamp when `_addr`'s lock finishes.
-    @dev Returns 0 if the contracted has entered a migration.
+    @dev Returns 0 if the contract has entered a migration.
     @param _addr User wallet.
     @return Epoch time of the lock end.
     """
@@ -600,6 +600,12 @@ def migrate():
 @internal
 @view
 def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
+    """
+    @notice Binary search to estimate timestamp for block number.
+    @param _block Block to find.
+    @param max_epoch Don't go beyond this epoch.
+    @return Approximate timestamp for block.
+    """
     # Binary search
     _min: uint256 = 0
     _max: uint256 = max_epoch
@@ -617,6 +623,13 @@ def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
 @internal
 @view
 def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
+    """
+    @notice Get the current voting power for `msg.sender`.
+    @dev Returns 0 if the contract has entered a migration.
+    @param addr User wallet address.
+    @param _t Epoch time to return voting power at.
+    @return User voting power.
+    """
     if self.migration:
         return 0
 
@@ -634,12 +647,27 @@ def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
 @external
 @view
 def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
+    """
+    @notice Get the current voting power for `msg.sender`.
+    @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility.
+         Returns 0 if the contract has entered a migration.
+    @param addr User wallet address.
+    @param _t Epoch time to return voting power at.
+    @return User voting power.
+    """
     return self.balance_of(addr, _t)
 
 
 @internal
 @view
 def balance_of_at(addr: address, _block: uint256) -> uint256:
+    """
+    @notice Measure voting power of `addr` at block height `_block`.
+    @dev Returns 0 if the contract has entered a migration.
+    @param addr User's wallet address.
+    @param _block Block to calculate the voting power at.
+    @return Voting power.
+    """
     if self.migration:
         return 0
 
@@ -687,12 +715,27 @@ def balance_of_at(addr: address, _block: uint256) -> uint256:
 @external
 @view
 def balanceOfAt(addr: address, _block: uint256) -> uint256:
+    """
+    @notice Measure voting power of `addr` at block height `_block`.
+    @dev Adheres to MiniMe `balanceOfAt` interface: https://github.com/Giveth/minime .
+         Returns 0 if the contract has entered a migration.
+    @param addr User's wallet address.
+    @param _block Block to calculate the voting power at.
+    @return Voting power.
+    """
     return self.balance_of_at(addr, _block)
 
 
 @internal
 @view
 def supply_at(point: Point, t: uint256) -> uint256:
+    """
+    @notice Calculate total voting power at some point in the past.
+    @dev Returns 0 if the contract has entered a migration.
+    @param point The point (bias/slope) to start search from.
+    @param t Time to calculate the total voting power at.
+    @return Total voting power at that time.
+    """
     if self.migration:
         return 0
 
@@ -719,6 +762,12 @@ def supply_at(point: Point, t: uint256) -> uint256:
 @external
 @view
 def totalSupply(t: uint256 = block.timestamp) -> uint256:
+    """
+    @notice Calculate total voting power.
+    @dev Adheres to the ERC20 `totalSupply` interface for Aragon compatibility.
+         Returns 0 if the contract has entered a migration.
+    @return Total voting power.
+    """
     _epoch: uint256 = self.epoch
     last_point: Point = self.point_history[_epoch]
     return self.supply_at(last_point, t)
@@ -727,6 +776,12 @@ def totalSupply(t: uint256 = block.timestamp) -> uint256:
 @external
 @view
 def totalSupplyAt(_block: uint256) -> uint256:
+    """
+    @notice Calculate total voting power at some point in the past.
+    @dev Returns 0 if the contract has entered a migration.
+    @param _block Block to calculate the total voting power at.
+    @return Total voting power at `_block`.
+    """
     if self.migration:
         return 0
 
@@ -753,12 +808,27 @@ def totalSupplyAt(_block: uint256) -> uint256:
 @external
 @view
 def getCurrentVotes(addr: address) -> uint256:
+    """
+    @notice Get the current voting power for `msg.sender`.
+    @dev Adheres to Compounds `getCurrentVotes` interface: https://github.com/compound-finance/compound-protocol .
+         Returns 0 if a migration is active.
+    @param addr User wallet address.
+    @return User voting power.
+    """
     return self.balance_of(addr)
 
 
 @external
 @view
 def getPriorVotes(addr: address, _block: uint256) -> uint256:
+    """
+    @notice Measure voting power of `addr` at block number `_block`.
+    @dev Adheres to Compounds `getPriorVotes` interface: https://github.com/compound-finance/compound-protocol .
+         Returns 0 if a migration is active.
+    @param addr User's wallet address.
+    @param _block Block to calculate the voting power at.
+    @return User voting power at `_block`.
+    """
     return self.balance_of_at(addr, _block)
 
 
@@ -766,6 +836,9 @@ def getPriorVotes(addr: address, _block: uint256) -> uint256:
 
 @external
 def changeController(_newController: address):
+    """
+    @dev Dummy method required for Aragon compatibility.
+    """
     assert msg.sender == self.controller
     self.controller = _newController
 
@@ -774,6 +847,10 @@ def changeController(_newController: address):
 
 @external
 def commit_transfer_ownership(addr: address):
+    """
+    @notice Transfer ownership of VotingEscrow contract to `addr`.
+    @param addr Address to have ownership transferred to.
+    """
     self.assert_is_owner(msg.sender)
 
     self.future_owner = addr
@@ -783,6 +860,9 @@ def commit_transfer_ownership(addr: address):
 
 @external
 def apply_transfer_ownership():
+    """
+    @notice Apply ownership transfer.
+    """
     self.assert_is_owner(msg.sender)
 
     _owner: address = self.future_owner
@@ -798,6 +878,10 @@ def apply_transfer_ownership():
 
 @external
 def commit_smart_wallet_checker(addr: address):
+    """
+    @notice Set an external contract to check for approved smart contract wallets.
+    @param addr Address of Smart contract checker.
+    """
     self.assert_is_owner(msg.sender)
 
     self.future_smart_wallet_checker = addr
@@ -807,6 +891,9 @@ def commit_smart_wallet_checker(addr: address):
 
 @external
 def apply_smart_wallet_checker():
+    """
+    @notice Apply setting external contract to check approved smart contract wallets.
+    """
     self.assert_is_owner(msg.sender)
 
     _checker: address = self.future_smart_wallet_checker
@@ -819,6 +906,10 @@ def apply_smart_wallet_checker():
 
 @external
 def commit_next_ve_contract(addr: address):
+    """
+    @notice Queues a new ve contract to replace the current one (self).
+    @param addr Address of the new ve contract.
+    """
     self.assert_is_owner(msg.sender)
 
     self.queued_next_ve_contract = addr
@@ -828,6 +919,9 @@ def commit_next_ve_contract(addr: address):
 
 @external
 def apply_next_ve_contract():
+    """
+    @notice Apply the queued ve contract and set migration to True.
+    """
     self.assert_is_owner(msg.sender)
 
     next: address = self.queued_next_ve_contract

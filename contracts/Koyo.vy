@@ -29,8 +29,11 @@ event Mint:
     previous_total_supply: uint256
     new_total_supply: uint256
 
-event SetOwnership:
+event CommitOwnership:
     owner: indexed(address)
+event ApplyOwnership:
+    owner: indexed(address)
+
 event SetMinter:
     minter: indexed(address)
 
@@ -288,16 +291,33 @@ def set_minter(_minter: address):
 
 
 @external
-def set_owner(_owner: address):
+def commit_transfer_ownership(addr: address):
     """
-    @notice Set the new owner.
-    @param _owner New owner address.
+    @notice Transfer ownership of the "Minter" contract to `addr`.
+    @param addr Address to have ownership transferred to.
     """
     self.assert_is_owner(msg.sender)
 
-    self.owner = _owner
+    self.future_owner = addr
 
-    log SetOwnership(_owner)
+    log CommitOwnership(addr)
+
+
+@external
+def apply_transfer_ownership():
+    """
+    @notice Apply ownership transfer.
+    """
+    self.assert_is_owner(msg.sender)
+
+    _owner: address = self.future_owner
+    assert _owner != ZERO_ADDRESS  # dev: owner not set
+
+    self.owner = _owner
+    self.future_owner = ZERO_ADDRESS
+
+    log ApplyOwnership(_owner)
+
 
 
 @external

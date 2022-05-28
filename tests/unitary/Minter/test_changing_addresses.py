@@ -1,4 +1,4 @@
-def test_voting_powers(accounts, koyo, Minter):
+def test_switching_addresses(accounts, koyo, Minter):
     a0 = accounts[0]
 
     initial_emission = [accounts[2]]
