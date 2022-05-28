@@ -2,7 +2,7 @@ from brownie import accounts
 
 
 DEPLOYMENTS_JSON = "deployments.json"
-REQUIRED_CONFIRMATIONS = 1
+REQUIRED_CONFIRMATIONS = 2
 
 
 def get_live_admin():

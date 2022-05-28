@@ -55,8 +55,8 @@ def deploy_part_one(_tx_params, deployments_json=None):
     )
 
     deployments = {
-        "Koyo": token.contract_address,
-        "VotingEscrow": voting_escrow.contract_address,
+        "Koyo": token.address,
+        "VotingEscrow": voting_escrow.address,
     }
 
     if deployments_json is not None:
@@ -87,10 +87,10 @@ def deploy_part_two(token, voting_escrow, _tx_params, deployments_json=None):
     voting_escrow.apply_smart_wallet_checker(_tx_params(5_000_000))
 
     deployments = {
-        "Koyo": token.contract_address,
-        "VotingEscrow": voting_escrow.contract_address,
-        "Minter": minter.contract_address,
-        "SmartWalletWhitelist": smart_wallet_whitelist.contract_address,
+        "Koyo": token.address,
+        "VotingEscrow": voting_escrow.address,
+        "Minter": minter.address,
+        "SmartWalletWhitelist": smart_wallet_whitelist.address,
     }
 
     if deployments_json is not None:
