@@ -104,6 +104,11 @@ def assert_is_owner(addr: address):
 
 @internal
 def _distribute_balance():
+    """
+    @notice Distributes the "Minter" contracts KYO balance
+            to addresses_emission, addresses_treasury, addresses_team_members, addresses_advisors,
+            and addresses_boba_bar.
+    """
     _token: ERC20 = ERC20(self.token)
     _balance: uint256 = _token.balanceOf(self)
 
@@ -133,6 +138,9 @@ def _distribute_balance():
 
 @internal
 def _mint_available():
+    """
+    @notice Mint any available tokens from the underlying "Koyo" contract.
+    """
     _token: ERC20 = ERC20(self.token)
     _balance: uint256 = _token.balanceOf(self)
 
@@ -146,7 +154,9 @@ def _mint_available():
 @external
 def distribute_balance():
     """
-    @notice Distributes the "Minter" contracts KYO balance to addresses_emission, addresses_treasury, addresses_team_members, addresses_advisors, and addresses_boba_bar.
+    @notice Distributes the "Minter" contracts KYO balance
+            to addresses_emission, addresses_treasury, addresses_team_members, addresses_advisors,
+            and addresses_boba_bar.
     @dev Anyone is allowed to trigger this as the distribution targets are stored in the contract and cannot be influenced externally.
     """
     self._distribute_balance()
@@ -164,8 +174,11 @@ def mint_available():
 @external
 def mint_and_distribute():
     """
-    @notice Mint any available tokens from the underlying "Koyo" (KYO) contract and distribute the "Minter" contracts balance to addresses_emission, addresses_treasury, addresses_team_members, addresses_advisors, and addresses_boba_bar.
-    @dev Anyone is allowed to trigger this as the mint target is the "Minter" contract itself and distribution targets are stored in the contract.
+    @notice Mint any available tokens from the underlying "Koyo" (KYO) contract
+            and distribute the "Minter" contracts balance to addresses_emission, addresses_treasury,
+            addresses_team_members, addresses_advisors, and addresses_boba_bar.
+    @dev Anyone is allowed to trigger this as the mint target is the "Minter" contract itself
+         and distribution targets are stored in the contract.
     """
     self._mint_available()
     self._distribute_balance()

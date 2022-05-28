@@ -458,6 +458,13 @@ def create_lock(_value: uint256, _unlock_time: uint256):
 @external
 @nonreentrant('lock')
 def create_lock_for(_addr: address, _value: uint256, _unlock_time: uint256):
+    """
+    @notice Deposit `_value` tokens for `_addr` and lock until `_unlock_time`.
+    @dev This action is only performable by the contract owner.
+    @param _addr Address for which to create the lock.
+    @param _value Amount to deposit.
+    @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks.
+    """
     self.assert_is_owner(msg.sender)
 
     self._create_lock_for(msg.sender, _addr, _value, _unlock_time)
@@ -574,6 +581,9 @@ def force_withdraw():
 @external
 @nonreentrant('lock')
 def migrate():
+    """
+    @notice Transfers the lock of `msg.sender` to a new ve contract.
+    """
     assert self.next_ve_contract != ZERO_ADDRESS # dev: no next ve contract
 
     _locked: LockedBalance = self.locked[msg.sender]
@@ -592,6 +602,7 @@ def migrate():
     self._checkpoint(msg.sender, old_locked, _locked)
 
     log Migrate(msg.sender, value, self.next_ve_contract)
+
 
 # The following ERC20/minime-compatible methods are not real balanceOf and supply!
 # They measure the weights for the purpose of voting, so they don't represent
