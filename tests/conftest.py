@@ -3,13 +3,13 @@ import pytest
 
 @pytest.fixture(scope="module")
 def koyo(Koyo, accounts):
-    yield Koyo.deploy("Koyo", "KOYO", 18, {"from": accounts[0]})
+    yield Koyo.deploy("Koyo", "KYO", 18, {"from": accounts[0]})
 
 
 @pytest.fixture(scope="module")
 def voting_escrow(VotingEscrow, accounts, koyo):
     yield VotingEscrow.deploy(
-        koyo, "Voting-escrowed KOYO", "veKOYO", "veKOYO_1", {"from": accounts[0]}
+        koyo, "Voting-escrowed KYO", "veKYO", "veKOYO_1", {"from": accounts[0]}
     )
 
 
