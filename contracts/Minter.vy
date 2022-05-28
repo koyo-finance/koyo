@@ -1,6 +1,6 @@
 # @version 0.3.3
 """
-@title Koyo Minter and Distributooooor
+@title Kōyō Minter and Distributooooor
 @author Kōyō Finance
 @license MIT
 @dev KYO tokens claimed by the minter are split between 9 addresses.
@@ -95,6 +95,10 @@ def __init__(
 @internal
 @view
 def assert_is_owner(addr: address):
+    """
+    @notice Check if the call is from the owner, revert if not.
+    @param addr Address to be checked.
+    """
     assert addr == self.owner  # dev: owner only
 
 

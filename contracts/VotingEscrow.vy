@@ -1,4 +1,14 @@
 # @version 0.3.3
+"""
+@title Voting Escrow
+@author Kōyō Finance
+@license MIT
+@notice Votes have a weight depending on time, so that users are
+        committed to the future of (whatever they are voting for).
+@dev Vote weight decays linearly over time. Lock time cannot be
+     more than `MAXTIME` (~1 year).
+     If a lock if forcefully exited the user experiences a 80% loss which is burnt.
+"""
 
 
 from SmartWalletWhitelist import SmartWalletChecker
@@ -137,6 +147,13 @@ migration: public(bool)
 
 @external
 def __init__(token_addr: address, _name: String[64], _symbol: String[32], _version: String[32]):
+    """
+    @notice Contract constructor.
+    @param token_addr `Koyo` (KYO) token address.
+    @param _name Token name.
+    @param _symbol Token symbol.
+    @param _version Contract version - required for Aragon compatibility.
+    """
     self.owner = msg.sender
 
     self.token = token_addr
@@ -161,11 +178,19 @@ def __init__(token_addr: address, _name: String[64], _symbol: String[32], _versi
 @internal
 @view
 def assert_is_owner(addr: address):
+    """
+    @notice Check if the call is from the owner, revert if not.
+    @param addr Address to be checked.
+    """
     assert addr == self.owner  # dev: owner only
 
 
 @internal
 def assert_not_contract(addr: address):
+    """
+    @notice Check if the call is from a whitelisted smart contract, revert if not.
+    @param addr Address to be checked.
+    """
     if addr != tx.origin:
         checker: address = self.smart_wallet_checker
         if checker != ZERO_ADDRESS:
@@ -177,6 +202,12 @@ def assert_not_contract(addr: address):
 @external
 @view
 def get_last_user_slope(addr: address) -> int128:
+    """
+    @notice Get the most recently recorded rate of voting power decrease for `addr`.
+    @dev Returns 0 if the contracted has entered a migration.
+    @param addr Address of the user wallet.
+    @return Value of the slope.
+    """
     if self.migration:
         return 0
 
@@ -187,6 +218,13 @@ def get_last_user_slope(addr: address) -> int128:
 @external
 @view
 def user_point_history__ts(_addr: address, _idx: uint256) -> uint256:
+    """
+    @notice Get the timestamp for checkpoint `_idx` for `_addr`.
+    @dev Returns 0 if the contracted has entered a migration.
+    @param _addr User wallet address.
+    @param _idx User epoch number.
+    @return Epoch time of the checkpoint.
+    """
     if self.migration:
         return 0
 
@@ -196,6 +234,12 @@ def user_point_history__ts(_addr: address, _idx: uint256) -> uint256:
 @external
 @view
 def locked__end(_addr: address) -> uint256:
+    """
+    @notice Get timestamp when `_addr`'s lock finishes.
+    @dev Returns 0 if the contracted has entered a migration.
+    @param _addr User wallet.
+    @return Epoch time of the lock end.
+    """
     if self.migration:
         return 0
 
@@ -204,6 +248,12 @@ def locked__end(_addr: address) -> uint256:
 
 @internal
 def _checkpoint(addr: address, old_locked: LockedBalance, new_locked: LockedBalance):
+    """
+    @notice Record global and per-user data to checkpoint.
+    @param addr User's wallet address. No user checkpoint if 0x0.
+    @param old_locked Pevious locked amount / end lock time for the user.
+    @param new_locked New locked amount / end lock time for the user.
+    """
     u_old: Point = empty(Point)
     u_new: Point = empty(Point)
     old_dslope: int128 = 0
@@ -315,11 +365,23 @@ def _checkpoint(addr: address, old_locked: LockedBalance, new_locked: LockedBala
 
 @external
 def checkpoint():
+    """
+    @notice Record global data to checkpoint.
+    """
     self._checkpoint(ZERO_ADDRESS, empty(LockedBalance), empty(LockedBalance))
 
 
 @internal
 def _deposit_for(_from: address, _addr: address, _value: uint256, unlock_time: uint256, locked_balance: LockedBalance, type: int128):
+    """
+    @notice Deposit and lock tokens for a user.
+    @dev A deposit cannot be made if the "VotingEscrow" contract has started a migration.
+    @param _from Address from which the tokens are transferred.
+    @param _addr User's wallet address.
+    @param _value Amount to deposit.
+    @param unlock_time New time when to unlock the tokens, or 0 if unchanged.
+    @param locked_balance Previous locked amount / timestamp.
+    """
     assert(self.migration == False) # dev: must migrate
 
     _locked: LockedBalance = locked_balance
@@ -362,6 +424,13 @@ def _create_lock_for(_from: address, _addr: address, _value: uint256, _unlock_ti
 @external
 @nonreentrant('lock')
 def deposit_for(_addr: address, _value: uint256):
+    """
+    @notice Deposit `_value` tokens for `_addr` and add to the lock.
+    @dev Anyone (even a smart contract) can deposit for someone else, but
+         cannot extend their locktime and deposit for a brand new user.
+    @param _addr User's wallet address.
+    @param _value Amount to add to user's lock.
+    """
     _locked: LockedBalance = self.locked[_addr]
 
     assert _value > 0  # dev: need non-zero value
@@ -374,6 +443,13 @@ def deposit_for(_addr: address, _value: uint256):
 @external
 @nonreentrant('lock')
 def create_lock(_value: uint256, _unlock_time: uint256):
+    """
+    @notice Deposit `_value` tokens for `msg.sender` and lock until `_unlock_time`.
+    @dev This action cannot be performed by a smart contract
+         that isn't whitelisted in the "SmartWalletWhitelist" contract.
+    @param _value Amount to deposit.
+    @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks.
+    """
     self.assert_not_contract(msg.sender)
 
     self._create_lock_for(msg.sender, msg.sender, _value, _unlock_time)
@@ -390,6 +466,13 @@ def create_lock_for(_addr: address, _value: uint256, _unlock_time: uint256):
 @external
 @nonreentrant('lock')
 def increase_amount(_value: uint256):
+    """
+    @notice Deposit `_value` additional tokens for `msg.sender`
+            without modifying the unlock time.
+    @dev This action cannot be performed by a smart contract
+         that isn't whitelisted in the "SmartWalletWhitelist" contract.
+    @param _value Amount of tokens to deposit and add to the lock.
+    """
     self.assert_not_contract(msg.sender)
 
     _locked: LockedBalance = self.locked[msg.sender]
@@ -404,6 +487,12 @@ def increase_amount(_value: uint256):
 @external
 @nonreentrant('lock')
 def increase_unlock_time(_unlock_time: uint256):
+    """
+    @notice Extend the unlock time for `msg.sender` to `_unlock_time`.
+    @dev This action cannot be performed by a smart contract
+         that isn't whitelisted in the "SmartWalletWhitelist" contract.
+    @param _unlock_time New epoch time for unlocking.
+    """
     self.assert_not_contract(msg.sender)
 
     _locked: LockedBalance = self.locked[msg.sender]
@@ -420,6 +509,10 @@ def increase_unlock_time(_unlock_time: uint256):
 @external
 @nonreentrant('lock')
 def withdraw():
+    """
+    @notice Withdraw all tokens for `msg.sender`.
+    @dev Only possible if the lock has expired.
+    """
     _locked: LockedBalance = self.locked[msg.sender]
     assert block.timestamp >= _locked.end, "LNE"
     value: uint256 = convert(_locked.amount, uint256)
@@ -445,6 +538,11 @@ def withdraw():
 @external
 @nonreentrant('lock')
 def force_withdraw():
+    """
+    @notice Withdraw all tokens for `msg.sender` before their lock has expired.
+            Forcefully withdrawing incours a 80% penalty which gets permanently burnt.
+    @dev Only possible before a users lock ends and only if the "VotingEscow" hasn't entered a migration.
+    """
     assert self.migration == False  # dev: must not be migrating
 
     _locked: LockedBalance = self.locked[msg.sender]
@@ -717,7 +815,7 @@ def apply_smart_wallet_checker():
     log ApplySmartWalletChecker(_checker)
 
 
-# Migrating to a new veKoyo contract
+# Migrating to a new veKYO contract
 
 @external
 def commit_next_ve_contract(addr: address):

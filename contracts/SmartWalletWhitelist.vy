@@ -49,6 +49,10 @@ def __init__():
 
 @internal
 def assert_is_owner(addr: address):
+    """
+    @notice Check if the call is from the owner, revert if not.
+    @param addr Address to be checked.
+    """
     assert addr == self.owner  # dev: owner only
 
 

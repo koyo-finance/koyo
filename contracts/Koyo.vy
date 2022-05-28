@@ -1,4 +1,11 @@
 # @version 0.3.3
+"""
+@title Kōyō Finance (KYO) token
+@author Kōyō Finance
+@license MIT
+@dev 6_149_520_000 tokens are minter over the period of ~5 years (157680000 seconds).
+     Every epoch (1 second), 39 KYO tokens are available to be minted by the "Minter" contract.
+"""
 
 
 from vyper.interfaces import ERC20
@@ -59,10 +66,10 @@ future_minter: public(address)
 @external
 def __init__(_name: String[64], _symbol: String[32], _decimals: uint256):
     """
-    @notice Contract constructor
-    @param _name Token full name
-    @param _symbol Token symbol
-    @param _decimals Number of decimals for token
+    @notice Contract constructor.
+    @param _name Token full name.
+    @param _symbol Token symbol.
+    @param _decimals Number of decimals for token.
     """
     ts: uint256 = block.timestamp
 
@@ -83,12 +90,20 @@ def __init__(_name: String[64], _symbol: String[32], _decimals: uint256):
 @internal
 @view
 def assert_is_owner(addr: address):
+    """
+    @notice Check if the call is from the owner, revert if not.
+    @param addr Address to be checked.
+    """
     assert addr == self.owner  # dev: owner only
 
 
 @internal
 @view
 def assert_is_minter(addr: address):
+    """
+    @notice Check if the call is from the designated minter, revert if not.
+    @param addr Address to be checked.
+    """
     assert addr == self.minter  # dev: minter only
 
 
@@ -118,10 +133,10 @@ def totalSupply() -> uint256:
 @view
 def allowance(_owner : address, _spender : address) -> uint256:
     """
-    @notice Check the amount of tokens that an owner allowed to a spender
-    @param _owner The address which owns the funds
-    @param _spender The address which will spend the funds
-    @return uint256 specifying the amount of tokens still available for the spender
+    @notice Check the amount of tokens that an owner allowed to a spender.
+    @param _owner The address which owns the funds.
+    @param _spender The address which will spend the funds.
+    @return uint256 specifying the amount of tokens still available for the spender.
     """
     return self.allowances[_owner][_spender]
 
@@ -129,12 +144,12 @@ def allowance(_owner : address, _spender : address) -> uint256:
 @external
 def transfer(_to : address, _value : uint256) -> bool:
     """
-    @notice Transfer `_value` tokens from `msg.sender` to `_to`
+    @notice Transfer `_value` tokens from `msg.sender` to `_to`.
     @dev Vyper does not allow underflows, so the subtraction in
-         this function will revert on an insufficient balance
-    @param _to The address to transfer to
-    @param _value The amount to be transferred
-    @return bool success
+         this function will revert on an insufficient balance.
+    @param _to The address to transfer to.
+    @param _value The amount to be transferred.
+    @return bool success.
     """
     assert _to != ZERO_ADDRESS  # dev: transfers to 0x0 are not allowed
     self.balanceOf[msg.sender] -= _value
@@ -148,11 +163,11 @@ def transfer(_to : address, _value : uint256) -> bool:
 @external
 def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
     """
-    @notice Transfer `_value` tokens from `_from` to `_to`
-    @param _from address The address which you want to send tokens from
-    @param _to address The address which you want to transfer to
-    @param _value uint256 the amount of tokens to be transferred
-    @return bool success
+    @notice Transfer `_value` tokens from `_from` to `_to`.
+    @param _from address The address which you want to send tokens from.
+    @param _to address The address which you want to transfer to.
+    @param _value uint256 the amount of tokens to be transferred.
+    @return bool success.
     """
     assert _to != ZERO_ADDRESS  # dev: transfers to 0x0 are not allowed
     # NOTE: vyper does not allow underflows
@@ -169,13 +184,13 @@ def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
 @external
 def approve(_spender : address, _value : uint256) -> bool:
     """
-    @notice Approve `_spender` to transfer `_value` tokens on behalf of `msg.sender`
+    @notice Approve `_spender` to transfer `_value` tokens on behalf of `msg.sender`.
     @dev Approval may only be from zero -> nonzero or from nonzero -> zero in order
         to mitigate the potential race condition described here:
-        https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-    @param _spender The address which will spend the funds
-    @param _value The amount of tokens to be spent
-    @return bool success
+        https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729 .
+    @param _spender The address which will spend the funds.
+    @param _value The amount of tokens to be spent.
+    @return bool success.
     """
     assert _value == 0 or self.allowances[msg.sender][_spender] == 0
     self.allowances[msg.sender][_spender] = _value
@@ -206,12 +221,12 @@ def increaseAllowance(_spender: address, _added_value: uint256) -> bool:
 @external
 def decreaseAllowance(_spender: address, _subtracted_value: uint256) -> bool:
     """
-    @notice Decrease the allowance granted to `_spender` by the caller
+    @notice Decrease the allowance granted to `_spender` by the caller.
     @dev This is alternative to {approve} that can be used as a mitigation for
-         the potential race condition
-    @param _spender The address which will transfer the funds
-    @param _subtracted_value The amount of to decrease the allowance
-    @return bool success
+         the potential race condition.
+    @param _spender The address which will transfer the funds.
+    @param _subtracted_value The amount of to decrease the allowance.
+    @return bool success.
     """
     allowance: uint256 = self.allowances[msg.sender][_spender] - _subtracted_value
     self.allowances[msg.sender][_spender] = allowance
@@ -223,6 +238,11 @@ def decreaseAllowance(_spender: address, _subtracted_value: uint256) -> bool:
 
 @external
 def mint_available(_to: address) -> bool:
+    """
+    @notice Mints any available tokens to `_to`.
+    @param _to Address to which all available tokens should be minted.
+    @return bool success.
+    """
     self.assert_is_minter(msg.sender)
     assert _to != ZERO_ADDRESS  # dev: zero address
 
@@ -241,10 +261,10 @@ def mint_available(_to: address) -> bool:
 @external
 def burn(_value: uint256) -> bool:
     """
-    @notice Burn `_value` tokens belonging to `msg.sender`
-    @dev Emits a Transfer event with a destination of 0x00
-    @param _value The amount that will be burned
-    @return bool success
+    @notice Burn `_value` tokens belonging to `msg.sender`.
+    @dev Emits a Transfer event with a destination of 0x00.
+    @param _value The amount that will be burned.
+    @return bool success.
     """
     self.balanceOf[msg.sender] -= _value
     self.total_supply -= _value
@@ -257,8 +277,8 @@ def burn(_value: uint256) -> bool:
 @external
 def set_minter(_minter: address):
     """
-    @notice Set the minter address
-    @param _minter Address of the minter
+    @notice Set the minter address.
+    @param _minter Address of the minter.
     """
     self.assert_is_owner(msg.sender)
 
@@ -271,7 +291,7 @@ def set_minter(_minter: address):
 def set_owner(_owner: address):
     """
     @notice Set the new owner.
-    @param _owner New owner address
+    @param _owner New owner address.
     """
     self.assert_is_owner(msg.sender)
 
@@ -283,10 +303,10 @@ def set_owner(_owner: address):
 @external
 def set_name(_name: String[64], _symbol: String[32]):
     """
-    @notice Change the token name and symbol to `_name` and `_symbol`
-    @dev Only callable by the admin account
-    @param _name New token name
-    @param _symbol New token symbol
+    @notice Change the token name and symbol to `_name` and `_symbol`.
+    @dev Only callable by the admin account.
+    @param _name New token name.
+    @param _symbol New token symbol.
     """
     self.assert_is_owner(msg.sender)
 
