@@ -872,7 +872,7 @@
   {
     "stateMutability": "view",
     "type": "function",
-    "name": "future_smart_wallet_checker",
+    "name": "smart_wallet_checker",
     "inputs": [],
     "outputs": [
       {
@@ -884,7 +884,7 @@
   {
     "stateMutability": "view",
     "type": "function",
-    "name": "smart_wallet_checker",
+    "name": "future_smart_wallet_checker",
     "inputs": [],
     "outputs": [
       {

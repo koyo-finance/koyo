@@ -76,7 +76,19 @@
     "type": "event"
   },
   {
-    "name": "SetOwnership",
+    "name": "CommitOwnership",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true
+      }
+    ],
+    "anonymous": false,
+    "type": "event"
+  },
+  {
+    "name": "ApplyOwnership",
     "inputs": [
       {
         "name": "owner",
@@ -309,13 +321,20 @@
   {
     "stateMutability": "nonpayable",
     "type": "function",
-    "name": "set_owner",
+    "name": "commit_transfer_ownership",
     "inputs": [
       {
-        "name": "_owner",
+        "name": "addr",
         "type": "address"
       }
     ],
+    "outputs": []
+  },
+  {
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "name": "apply_transfer_ownership",
+    "inputs": [],
     "outputs": []
   },
   {
