@@ -249,7 +249,9 @@ def mint_available(_to: address) -> bool:
     self.assert_is_minter(msg.sender)
     assert _to != ZERO_ADDRESS  # dev: zero address
 
-    amount: uint256 = self._update_emissions()
+    amount_till: uint256 = self.emissions_generated
+    amount_overall: uint256 = self._update_emissions()
+    amount: uint256 = amount_overall - amount_till
     _total_supply: uint256 = self.total_supply
     self.total_supply = _total_supply + amount
 
