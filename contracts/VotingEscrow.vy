@@ -569,12 +569,12 @@ def force_withdraw():
     # Both can have >= 0 amount
     self._checkpoint(msg.sender, old_locked, _locked)
 
-    penalty: uint256 = value * PENALTY_RATIO / MULTIPLIER
-    assert ERC20(self.token).transfer(msg.sender, value - penalty)
-    assert ERC20(self.token).burn(penalty)
+    penalised: uint256 = value * PENALTY_RATIO / MULTIPLIER
+    assert ERC20(self.token).transfer(msg.sender, penalised)
+    assert ERC20(self.token).burn(value - penalised)
 
     log Withdraw(msg.sender, value, block.timestamp)
-    log PenaltyApplied(msg.sender, value, penalty, block.timestamp)
+    log PenaltyApplied(msg.sender, value, penalised, block.timestamp)
     log Supply(supply_before, supply_before - value)
 
 
