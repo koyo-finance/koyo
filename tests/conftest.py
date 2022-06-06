@@ -69,6 +69,36 @@ def minter(
     )
 
 
+@pytest.fixture(scope="module")
+def gauge_controller(
+    GaugeController,
+    koyo,
+    voting_escrow,
+    accounts,
+):
+    yield GaugeController.deploy(
+        koyo,
+        voting_escrow,
+        {"from": accounts[0]},
+    )
+
+
+@pytest.fixture(scope="module")
+def gauge_distributor(
+    GaugeDistributor,
+    koyo,
+    minter,
+    gauge_controller,
+    accounts,
+):
+    yield GaugeDistributor.deploy(
+        koyo,
+        minter,
+        gauge_controller,
+        {"from": accounts[0]},
+    )
+
+
 def approx(a, b, precision=1e-10):
     if a == b == 0:
         return True

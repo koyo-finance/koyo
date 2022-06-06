@@ -23,14 +23,14 @@ minted: public(HashMap[address, HashMap[address, uint256]])
 allowed_to_mint_for: public(HashMap[address, HashMap[address, bool]])
 
 @external
-def __init__(_token: address, _minter: address, _controller: address):
+def __init__(_token: address, _minter: address, _gauge_controller: address):
     self.token = _token
     self.minter = _minter
-    self.gauge_controller = _controller
+    self.gauge_controller = _gauge_controller
 
 
 @internal
-def _mint_for(gauge_addr: address, _for: address):
+def _distribute_for(gauge_addr: address, _for: address):
     assert GaugeController(self.gauge_controller).gauge_types(gauge_addr) >= 0  # dev: gauge is not added
 
     Gauge(gauge_addr).user_checkpoint(_for)
@@ -45,22 +45,20 @@ def _mint_for(gauge_addr: address, _for: address):
 
 @external
 @nonreentrant('lock')
-def mint(gauge_addr: address):
+def distribute(gauge_addr: address):
     """
-    @notice Mint everything which belongs to `msg.sender` and send to them
-    @param gauge_addr `Gauge` address to get mintable amount from
+    @notice Mint everything which belongs to `msg.sender` and send to them.
+    @param gauge_addr `Gauge` address to get mintable amount from.
     """
-    self._mint_for(gauge_addr, msg.sender)
+    self._distribute_for(gauge_addr, msg.sender)
 
 
 @external
 @nonreentrant('lock')
-def mint_many(gauge_addrs: DynArray[address, 8]):
+def distribute_many(gauge_addrs: DynArray[address, 16]):
     """
-    @notice Mint everything which belongs to `msg.sender` across multiple gauges
-    @param gauge_addrs List of `Gauge` addresses
+    @notice Mint everything which belongs to `msg.sender` across multiple gauges.
+    @param gauge_addrs List of `Gauge` addresses.
     """
-    for i in range(8):
-        if gauge_addrs[i] == ZERO_ADDRESS:
-            continue
-        self._mint_for(gauge_addrs[i], msg.sender)
+    for gauge_addr in gauge_addrs:
+        self._distribute_for(gauge_addr, msg.sender)
