@@ -1,5 +1,9 @@
 # @version 0.3.3
-
+"""
+@title Kōyō Finance Gauge Distributor
+@author Kōyō Finance
+@license MIT
+"""
 
 from vyper.interfaces import ERC20
 from ... import Minter
