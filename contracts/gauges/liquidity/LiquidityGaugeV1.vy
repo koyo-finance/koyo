@@ -27,6 +27,15 @@ interface VotingEscrow:
     def user_point_history__ts(addr: address, epoch: uint256) -> uint256: view
 
 
+struct Reward:
+    token: address
+    distributor: address
+    period_finish: uint256
+    rate: uint256
+    last_update: uint256
+    integral: uint256
+
+
 event Deposit:
     provider: indexed(address)
     value: uint256
@@ -42,12 +51,6 @@ event UpdateLiquidityLimit:
     working_balance: uint256
     working_supply: uint256
 
-event CommitOwnership:
-    admin: address
-
-event ApplyOwnership:
-    admin: address
-
 event Transfer:
     _from: indexed(address)
     _to: indexed(address)
@@ -58,14 +61,10 @@ event Approval:
     _spender: indexed(address)
     _value: uint256
 
-
-struct Reward:
-    token: address
-    distributor: address
-    period_finish: uint256
-    rate: uint256
-    last_update: uint256
-    integral: uint256
+event CommitOwnership:
+    owner: indexed(address)
+event ApplyOwnership:
+    owner: indexed(address)
 
 
 MAX_REWARDS: constant(uint256) = 8
@@ -127,15 +126,15 @@ claim_data: HashMap[address, HashMap[address, uint256]]
 
 is_killed: public(bool)
 
-admin: public(address)
-future_admin: public(address)
+owner: public(address)
+future_owner: public(address)
 
 @external
-def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address, _gauge_controller: address, _lp_token: address, _admin: address):
+def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address, _gauge_controller: address, _lp_token: address, _owner: address):
     """
-    @notice Contract constructor
-    @param _lp_token Liquidity Pool contract address
-    @param _admin Admin who can kill the gauge
+    @notice Contract constructor.
+    @param _lp_token Liquidity Pool contract address.
+    @param _owner Admin who can kill the gauge.
     """
 
     KYO = _kyo
@@ -144,7 +143,7 @@ def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address
     GAUGE_CONTROLLER = _gauge_controller
 
     self.lp_token = _lp_token
-    self.admin = _admin
+    self.owner = _owner
 
     symbol: String[26] = ERC20Extended(_lp_token).symbol()
     self.name = concat("Koyo.finance ", symbol, " Gauge Deposit")
@@ -592,7 +591,7 @@ def add_reward(_reward_token: address, _distributor: address):
     """
     @notice Set the active reward contract
     """
-    assert msg.sender == self.admin  # dev: only owner
+    assert msg.sender == self.owner  # dev: only owner
 
     reward_count: uint256 = self.reward_count
     assert reward_count < MAX_REWARDS
@@ -607,7 +606,7 @@ def add_reward(_reward_token: address, _distributor: address):
 def set_reward_distributor(_reward_token: address, _distributor: address):
     current_distributor: address = self.reward_data[_reward_token].distributor
 
-    assert msg.sender == current_distributor or msg.sender == self.admin
+    assert msg.sender == current_distributor or msg.sender == self.owner
     assert current_distributor != ZERO_ADDRESS
     assert _distributor != ZERO_ADDRESS
 
@@ -653,7 +652,7 @@ def set_killed(_is_killed: bool):
     @dev When killed, the gauge always yields a rate of 0 and so cannot mint CRV
     @param _is_killed Killed status to set
     """
-    assert msg.sender == self.admin
+    assert msg.sender == self.owner
 
     self.is_killed = _is_killed
 
@@ -661,22 +660,22 @@ def set_killed(_is_killed: bool):
 @external
 def commit_transfer_ownership(addr: address):
     """
-    @notice Transfer ownership of GaugeController to `addr`
-    @param addr Address to have ownership transferred to
+    @notice Transfer ownership of LiquidityGaugeV1 to `addr`.
+    @param addr Address to have ownership transferred to.
     """
-    assert msg.sender == self.admin  # dev: admin only
+    assert msg.sender == self.owner  # dev: admin only
 
-    self.future_admin = addr
+    self.future_owner = addr
     log CommitOwnership(addr)
 
 
 @external
 def accept_transfer_ownership():
     """
-    @notice Accept a pending ownership transfer
+    @notice Accept a pending ownership transfer.
     """
-    _admin: address = self.future_admin
-    assert msg.sender == _admin  # dev: future admin only
+    _owner: address = self.future_owner
+    assert msg.sender == _owner  # dev: future admin only
 
-    self.admin = _admin
-    log ApplyOwnership(_admin)
+    self.owner = _owner
+    log ApplyOwnership(_owner)
