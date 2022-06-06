@@ -1,11 +1,11 @@
 # @version 0.3.3
 """
-@title Liquidity Gauge v5
+@title Liquidity Gauge v1
 @author Curve Finance
 @license MIT
 """
-from vyper.interfaces import ERC20
 
+from vyper.interfaces import ERC20
 
 implements: ERC20
 
@@ -20,14 +20,11 @@ interface GaugeController:
     def voting_escrow() -> address: view
     def checkpoint_gauge(addr: address): nonpayable
 interface GaugeDistributor:
-    def minted(user: address, gauge: address) -> uint256: view
+    def distributed(user: address, gauge: address) -> uint256: view
 
 interface VotingEscrow:
     def user_point_epoch(addr: address) -> uint256: view
     def user_point_history__ts(addr: address, epoch: uint256) -> uint256: view
-
-interface ERC1271:
-    def isValidSignature(_hash: bytes32, _signature: Bytes[65]) -> bytes32: view
 
 
 event Deposit:
@@ -45,6 +42,12 @@ event UpdateLiquidityLimit:
     working_balance: uint256
     working_supply: uint256
 
+event CommitOwnership:
+    admin: address
+
+event ApplyOwnership:
+    admin: address
+
 event Transfer:
     _from: indexed(address)
     _to: indexed(address)
@@ -54,11 +57,6 @@ event Approval:
     _owner: indexed(address)
     _spender: indexed(address)
     _value: uint256
-
-event CommitOwnership:
-    admin: address
-event ApplyOwnership:
-    admin: address
 
 
 struct Reward:
@@ -70,36 +68,47 @@ struct Reward:
     integral: uint256
 
 
-# keccak256("isValidSignature(bytes32,bytes)")[:4] << 224
-ERC1271_MAGIC_VAL: constant(bytes32) = 0x1626ba7e00000000000000000000000000000000000000000000000000000000
-EIP712_TYPEHASH: constant(bytes32) = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
-PERMIT_TYPEHASH: constant(bytes32) = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
-VERSION: constant(String[8]) = "v5.0.0"
-
 MAX_REWARDS: constant(uint256) = 8
 TOKENLESS_PRODUCTION: constant(uint256) = 40
 WEEK: constant(uint256) = 604800
+
+SHARE__DENOMINATOR: constant(uint256) = 10 ** 10
+SHARE_EMISSIONS: constant(uint256) = 6_400_000_000 # 64%
 
 KYO: immutable(address)
 VOTING_ESCROW: immutable(address)
 GAUGE_DISTRIBUTOR: immutable(address)
 GAUGE_CONTROLLER: immutable(address)
 
-NAME: immutable(String[64])
-SYMBOL: immutable(String[32])
-DOMAIN_SEPARATOR: immutable(bytes32)
-
-LP_TOKEN: immutable(address)
-
-
-nonces: public(HashMap[address, uint256])
+lp_token: public(address)
 
 balanceOf: public(HashMap[address, uint256])
 totalSupply: public(uint256)
 allowance: public(HashMap[address, HashMap[address, uint256]])
 
+name: public(String[64])
+symbol: public(String[32])
+
 working_balances: public(HashMap[address, uint256])
 working_supply: public(uint256)
+
+# The goal is to be able to calculate ∫(rate * balance / totalSupply dt) from 0 till checkpoint
+# All values are kept in units of being multiplied by 1e18
+period: public(int128)
+period_timestamp: public(uint256[100000000000000000000000000000])
+
+# 1e18 * ∫(rate(t) / totalSupply(t) dt) from 0 till checkpoint
+integrate_inv_supply: public(uint256[100000000000000000000000000000])  # bump epoch when rate() changes
+
+# 1e18 * ∫(rate(t) / totalSupply(t) dt) from (last_action) till checkpoint
+integrate_inv_supply_of: public(HashMap[address, uint256])
+integrate_checkpoint_of: public(HashMap[address, uint256])
+
+# ∫(balance * rate(t) / totalSupply(t) dt) from 0 till checkpoint
+# Units: rate * t = already number of coins per address to issue
+integrate_fraction: public(HashMap[address, uint256])
+
+inflation_rate: public(uint256)
 
 # For tracking external rewards
 reward_count: public(uint256)
@@ -116,28 +125,10 @@ reward_integral_for: public(HashMap[address, HashMap[address, uint256]])
 # user -> [uint128 claimable amount][uint128 claimed amount]
 claim_data: HashMap[address, HashMap[address, uint256]]
 
-admin: public(address)
-future_admin: public(address)
 is_killed: public(bool)
 
-# 1e18 * ∫(rate(t) / totalSupply(t) dt) from (last_action) till checkpoint
-integrate_inv_supply_of: public(HashMap[address, uint256])
-integrate_checkpoint_of: public(HashMap[address, uint256])
-
-# ∫(balance * rate(t) / totalSupply(t) dt) from 0 till checkpoint
-# Units: rate * t = already number of coins per address to issue
-integrate_fraction: public(HashMap[address, uint256])
-
-inflation_rate: public(uint256)
-
-# The goal is to be able to calculate ∫(rate * balance / totalSupply dt) from 0 till checkpoint
-# All values are kept in units of being multiplied by 1e18
-period: public(int128)
-period_timestamp: public(uint256[100000000000000000000000000000])
-
-# 1e18 * ∫(rate(t) / totalSupply(t) dt) from 0 till checkpoint
-integrate_inv_supply: public(uint256[100000000000000000000000000000])  # bump epoch when rate() changes
-
+admin: public(address)
+future_admin: public(address)
 
 @external
 def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address, _gauge_controller: address, _lp_token: address, _admin: address):
@@ -147,26 +138,31 @@ def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address
     @param _admin Admin who can kill the gauge
     """
 
-    self.admin = _admin
-
     KYO = _kyo
     VOTING_ESCROW = _voting_escrow
     GAUGE_DISTRIBUTOR = _gauge_distributor
     GAUGE_CONTROLLER = _gauge_controller
 
+    self.lp_token = _lp_token
+    self.admin = _admin
+
+    symbol: String[26] = ERC20Extended(_lp_token).symbol()
+    self.name = concat("Koyo.finance ", symbol, " Gauge Deposit")
+    self.symbol = concat(symbol, "-gauge")
+
     self.period_timestamp[0] = block.timestamp
-    self.inflation_rate = Koyo(KYO).emission_rate()
+    self.inflation_rate = Koyo(KYO).emission_rate() * SHARE_EMISSIONS / SHARE__DENOMINATOR
 
-    lp_symbol: String[26] = ERC20Extended(_lp_token).symbol()
-    name: String[64] = concat("Koyo.finance ", lp_symbol, " Gauge Deposit")
 
-    NAME = name
-    SYMBOL = concat(lp_symbol, "-gauge")
-    DOMAIN_SEPARATOR = keccak256(
-        _abi_encode(EIP712_TYPEHASH, keccak256(name), keccak256(VERSION), chain.id, self)
-    )
-
-    LP_TOKEN = _lp_token
+@view
+@external
+def decimals() -> uint256:
+    """
+    @notice Get the number of decimals for this token
+    @dev Implemented as a view method to reduce gas costs
+    @return uint256 decimal places
+    """
+    return 18
 
 
 @view
@@ -178,16 +174,16 @@ def integrate_checkpoint() -> uint256:
 @internal
 def _update_liquidity_limit(addr: address, l: uint256, L: uint256):
     """
-    @notice Calculate limits which depend on the amount of KYO token per-user.
+    @notice Calculate limits which depend on the amount of CRV token per-user.
             Effectively it calculates working balances to apply amplification
-            of KYO production by KYO.
-    @param addr User address.
-    @param l User's amount of liquidity (LP tokens).
-    @param L Total amount of liquidity (LP tokens).
+            of CRV production by CRV
+    @param addr User address
+    @param l User's amount of liquidity (LP tokens)
+    @param L Total amount of liquidity (LP tokens)
     """
-    _voting_escrow: address = VOTING_ESCROW
-    voting_balance: uint256 = ERC20(_voting_escrow).balanceOf(addr)
-    voting_total: uint256 = ERC20(_voting_escrow).totalSupply()
+    # To be called after totalSupply is updated
+    voting_balance: uint256 = ERC20(VOTING_ESCROW).balanceOf(addr)
+    voting_total: uint256 = ERC20(VOTING_ESCROW).totalSupply()
 
     lim: uint256 = l * TOKENLESS_PRODUCTION / 100
     if voting_total > 0:
@@ -205,7 +201,7 @@ def _update_liquidity_limit(addr: address, l: uint256, L: uint256):
 @internal
 def _checkpoint_rewards(_user: address, _total_supply: uint256, _claim: bool, _receiver: address):
     """
-    @notice Claim pending rewards and checkpoint rewards for a user.
+    @notice Claim pending rewards and checkpoint rewards for a user
     """
 
     user_balance: uint256 = 0
@@ -266,8 +262,8 @@ def _checkpoint_rewards(_user: address, _total_supply: uint256, _claim: bool, _r
 @internal
 def _checkpoint(addr: address):
     """
-    @notice Checkpoint for a user.
-    @param addr User address.
+    @notice Checkpoint for a user
+    @param addr User address
     """
     _period: int128 = self.period
     _period_time: uint256 = self.period_timestamp[_period]
@@ -319,9 +315,9 @@ def _checkpoint(addr: address):
 @external
 def user_checkpoint(addr: address) -> bool:
     """
-    @notice Record a checkpoint for `addr`.
-    @param addr User address.
-    @return bool success.
+    @notice Record a checkpoint for `addr`
+    @param addr User address
+    @return bool success
     """
     assert msg.sender in [addr, GAUGE_DISTRIBUTOR]  # dev: unauthorized
     self._checkpoint(addr)
@@ -332,22 +328,22 @@ def user_checkpoint(addr: address) -> bool:
 @external
 def claimable_tokens(addr: address) -> uint256:
     """
-    @notice Get the number of claimable tokens per user.
-    @dev This function should be manually changed to "view" in the ABI.
-    @return uint256 number of claimable tokens per user.
+    @notice Get the number of claimable tokens per user
+    @dev This function should be manually changed to "view" in the ABI
+    @return uint256 number of claimable tokens per user
     """
     self._checkpoint(addr)
-    return self.integrate_fraction[addr] - GaugeDistributor(GAUGE_DISTRIBUTOR).minted(addr, self)
+    return self.integrate_fraction[addr] - GaugeDistributor(GAUGE_DISTRIBUTOR).distributed(addr, self)
 
 
 @view
 @external
 def claimed_reward(_addr: address, _token: address) -> uint256:
     """
-    @notice Get the number of already-claimed reward tokens for a user.
-    @param _addr Account to get reward amount for.
-    @param _token Token to get reward amount for.
-    @return uint256 Total amount of `_token` already claimed by `_addr`.
+    @notice Get the number of already-claimed reward tokens for a user
+    @param _addr Account to get reward amount for
+    @param _token Token to get reward amount for
+    @return uint256 Total amount of `_token` already claimed by `_addr`
     """
     return self.claim_data[_addr][_token] % 2**128
 
@@ -444,7 +440,7 @@ def deposit(_value: uint256, _addr: address = msg.sender, _claim_rewards: bool =
 
         self._update_liquidity_limit(_addr, new_balance, total_supply)
 
-        ERC20(LP_TOKEN).transferFrom(msg.sender, self, _value)
+        ERC20(self.lp_token).transferFrom(msg.sender, self, _value)
 
     log Deposit(_addr, _value)
     log Transfer(ZERO_ADDRESS, _addr, _value)
@@ -473,7 +469,7 @@ def withdraw(_value: uint256, _claim_rewards: bool = False):
 
         self._update_liquidity_limit(msg.sender, new_balance, total_supply)
 
-        ERC20(LP_TOKEN).transfer(msg.sender, _value)
+        ERC20(self.lp_token).transfer(msg.sender, _value)
 
     log Withdraw(msg.sender, _value)
     log Transfer(msg.sender, ZERO_ADDRESS, _value)
@@ -552,56 +548,6 @@ def approve(_spender : address, _value : uint256) -> bool:
     self.allowance[msg.sender][_spender] = _value
     log Approval(msg.sender, _spender, _value)
 
-    return True
-
-
-@external
-def permit(
-    _owner: address,
-    _spender: address,
-    _value: uint256,
-    _deadline: uint256,
-    _v: uint8,
-    _r: bytes32,
-    _s: bytes32
-) -> bool:
-    """
-    @notice Approves spender by owner's signature to expend owner's tokens.
-        See https://eips.ethereum.org/EIPS/eip-2612.
-    @dev Inspired by https://github.com/yearn/yearn-vaults/blob/main/contracts/Vault.vy#L753-L793
-    @dev Supports smart contract wallets which implement ERC1271
-        https://eips.ethereum.org/EIPS/eip-1271
-    @param _owner The address which is a source of funds and has signed the Permit.
-    @param _spender The address which is allowed to spend the funds.
-    @param _value The amount of tokens to be spent.
-    @param _deadline The timestamp after which the Permit is no longer valid.
-    @param _v The bytes[64] of the valid secp256k1 signature of permit by owner
-    @param _r The bytes[0:32] of the valid secp256k1 signature of permit by owner
-    @param _s The bytes[32:64] of the valid secp256k1 signature of permit by owner
-    @return True, if transaction completes successfully
-    """
-    assert _owner != ZERO_ADDRESS
-    assert block.timestamp <= _deadline
-
-    nonce: uint256 = self.nonces[_owner]
-    digest: bytes32 = keccak256(
-        concat(
-            b"\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(_abi_encode(PERMIT_TYPEHASH, _owner, _spender, _value, nonce, _deadline))
-        )
-    )
-
-    if _owner.is_contract:
-        sig: Bytes[65] = concat(_abi_encode(_r, _s), slice(convert(_v, bytes32), 31, 1))
-        assert ERC1271(_owner).isValidSignature(digest, sig) == ERC1271_MAGIC_VAL
-    else:
-        assert ecrecover(digest, convert(_v, uint256), convert(_r, uint256), convert(_s, uint256)) == _owner
-
-    self.allowance[_owner][_spender] = _value
-    self.nonces[_owner] = nonce + 1
-
-    log Approval(_owner, _spender, _value)
     return True
 
 
@@ -734,59 +680,3 @@ def accept_transfer_ownership():
 
     self.admin = _admin
     log ApplyOwnership(_admin)
-
-
-@view
-@external
-def name() -> String[64]:
-    """
-    @notice Get the name for this gauge token
-    """
-    return NAME
-
-
-@view
-@external
-def symbol() -> String[32]:
-    """
-    @notice Get the symbol for this gauge token
-    """
-    return SYMBOL
-
-
-@view
-@external
-def decimals() -> uint256:
-    """
-    @notice Get the number of decimals for this token
-    @dev Implemented as a view method to reduce gas costs
-    @return uint256 decimal places
-    """
-    return 18
-
-
-@view
-@external
-def lp_token() -> address:
-    """
-    @notice Query the lp token used for this gauge
-    """
-    return LP_TOKEN
-
-
-@view
-@external
-def version() -> String[8]:
-    """
-    @notice Get the version of this gauge
-    """
-    return VERSION
-
-
-@view
-@external
-def DOMAIN_SEPARATOR() -> bytes32:
-    """
-    @notice Domain separator for this contract
-    """
-    return DOMAIN_SEPARATOR

@@ -1,6 +1,16 @@
 import pytest
 
 
+@pytest.fixture(scope="session")
+def alice(accounts):
+    yield accounts[0]
+
+
+@pytest.fixture(scope="session")
+def bob(accounts):
+    yield accounts[1]
+
+
 # region Minter - accounts
 @pytest.fixture(scope="session")
 def minter_initial_emissions(accounts):
@@ -45,6 +55,11 @@ def voting_escrow(VotingEscrow, accounts, koyo):
     yield VotingEscrow.deploy(
         koyo, "Voting-escrowed KYO", "veKYO", "veKOYO_1", {"from": accounts[0]}
     )
+
+
+@pytest.fixture(scope="module")
+def mock_lp_token(ERC20LP, accounts):
+    yield ERC20LP.deploy("Koyo LP token", "usdKYO", 18, 10**9, {"from": accounts[0]})
 
 
 @pytest.fixture(scope="module")
@@ -97,6 +112,32 @@ def gauge_distributor(
         gauge_controller,
         {"from": accounts[0]},
     )
+
+
+@pytest.fixture(scope="module")
+def three_gauges(
+    LiquidityGaugeV1,
+    koyo,
+    voting_escrow,
+    gauge_distributor,
+    gauge_controller,
+    mock_lp_token,
+    accounts,
+):
+    contracts = [
+        LiquidityGaugeV1.deploy(
+            koyo,
+            voting_escrow,
+            gauge_distributor,
+            gauge_controller,
+            mock_lp_token,
+            accounts[0],
+            {"from": accounts[0]},
+        )
+        for _ in range(3)
+    ]
+
+    yield contracts
 
 
 def approx(a, b, precision=1e-10):
