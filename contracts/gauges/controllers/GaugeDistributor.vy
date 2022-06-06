@@ -23,7 +23,7 @@ gauge_controller: public(address)
 # user -> gauge -> value
 distributed: public(HashMap[address, HashMap[address, uint256]])
 
-# minter -> user -> can mint?
+# minter -> user -> can distribute?
 allowed_to_distribute_for: public(HashMap[address, HashMap[address, bool]])
 
 @external
@@ -66,3 +66,25 @@ def distribute_many(gauge_addrs: DynArray[address, 16]):
     """
     for gauge_addr in gauge_addrs:
         self._distribute_for(gauge_addr, msg.sender)
+
+
+@external
+@nonreentrant('lock')
+def distribute_for(gauge_addr: address, _for: address):
+    """
+    @notice Distribute tokens for `_for`.
+    @dev Only possible when `msg.sender` has been approved via `toggle_approve_distribute`.
+    @param gauge_addr `Gauge` address to get distributable amount from.
+    @param _for Address to distribute to.
+    """
+    if self.allowed_to_distribute_for[msg.sender][_for]:
+        self._distribute_for(gauge_addr, _for)
+
+
+@external
+def toggle_approve_distribute(distributting_user: address):
+    """
+    @notice Allow `distributting_user` to distribute for `msg.sender`.
+    @param distributting_user Address to toggle permission for.
+    """
+    self.allowed_to_distribute_for[distributting_user][msg.sender] = not self.allowed_to_distribute_for[distributting_user][msg.sender]
