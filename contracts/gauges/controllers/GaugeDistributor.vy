@@ -21,10 +21,10 @@ minter: public(address)
 gauge_controller: public(address)
 
 # user -> gauge -> value
-minted: public(HashMap[address, HashMap[address, uint256]])
+distributed: public(HashMap[address, HashMap[address, uint256]])
 
 # minter -> user -> can mint?
-allowed_to_mint_for: public(HashMap[address, HashMap[address, bool]])
+allowed_to_distribute_for: public(HashMap[address, HashMap[address, bool]])
 
 @external
 def __init__(_token: address, _minter: address, _gauge_controller: address):
@@ -39,12 +39,12 @@ def _distribute_for(gauge_addr: address, _for: address):
 
     Gauge(gauge_addr).user_checkpoint(_for)
     total_mint: uint256 = Gauge(gauge_addr).integrate_fraction(_for)
-    to_mint: uint256 = total_mint - self.minted[_for][gauge_addr]
+    to_mint: uint256 = total_mint - self.distributed[_for][gauge_addr]
 
     if to_mint != 0:
         Minter(self.minter).mint_and_distribute()
         ERC20(self.token).transfer(_for, to_mint)
-        self.minted[_for][gauge_addr] = total_mint
+        self.distributed[_for][gauge_addr] = total_mint
 
 
 @external
