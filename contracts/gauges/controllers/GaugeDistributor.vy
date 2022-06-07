@@ -1,6 +1,6 @@
 # @version 0.3.3
 """
-@title Kōyō Finance Gauge Distributor
+@title Kōyō Finance Gauge Distributor (minter)
 @author Kōyō Finance
 @license MIT
 """

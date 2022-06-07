@@ -1,5 +1,9 @@
 # @version 0.3.3
-
+"""
+@title Kōyō Finance Gauge Controller
+@author Kōyō Finance
+@license MIT
+"""
 
 interface VotingEscrow:
     def get_last_user_slope(addr: address) -> int128: view

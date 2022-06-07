@@ -1,7 +1,7 @@
 # @version 0.3.3
 """
 @title Liquidity Gauge v1
-@author Curve Finance
+@author Kōyō Finance, Curve Finance
 @license MIT
 """
 
@@ -133,8 +133,11 @@ future_owner: public(address)
 def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address, _gauge_controller: address, _lp_token: address):
     """
     @notice Contract constructor.
+    @param _kyo KYO token contract address.
+    @param _voting_escrow veKYO (voting escrow) contract address.
+    @param _gauge_distributor Gauge distributor (gauge minter) contract address.
+    @param _gauge_controller Gauge controller contract address.
     @param _lp_token Liquidity Pool contract address.
-    @param _owner Admin who can kill the gauge.
     """
 
     KYO = _kyo
@@ -157,9 +160,9 @@ def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address
 @external
 def decimals() -> uint256:
     """
-    @notice Get the number of decimals for this token
-    @dev Implemented as a view method to reduce gas costs
-    @return uint256 decimal places
+    @notice Get the number of decimals for this token.
+    @dev Implemented as a view method to reduce gas costs.
+    @return uint256 decimal places.
     """
     return 18
 
@@ -167,18 +170,21 @@ def decimals() -> uint256:
 @view
 @external
 def integrate_checkpoint() -> uint256:
+    """
+    @return uint256 timestamp of the current gauge period.
+    """
     return self.period_timestamp[self.period]
 
 
 @internal
 def _update_liquidity_limit(addr: address, l: uint256, L: uint256):
     """
-    @notice Calculate limits which depend on the amount of CRV token per-user.
+    @notice Calculate limits which depend on the amount of KYO token per-user.
             Effectively it calculates working balances to apply amplification
-            of CRV production by CRV
-    @param addr User address
-    @param l User's amount of liquidity (LP tokens)
-    @param L Total amount of liquidity (LP tokens)
+            of KYO production by KYO.
+    @param addr User address.
+    @param l User's amount of liquidity (LP tokens).
+    @param L Total amount of liquidity (LP tokens).
     """
     # To be called after totalSupply is updated
     voting_balance: uint256 = ERC20(VOTING_ESCROW).balanceOf(addr)
@@ -200,7 +206,7 @@ def _update_liquidity_limit(addr: address, l: uint256, L: uint256):
 @internal
 def _checkpoint_rewards(_user: address, _total_supply: uint256, _claim: bool, _receiver: address):
     """
-    @notice Claim pending rewards and checkpoint rewards for a user
+    @notice Claim pending rewards and checkpoint rewards for a user.
     """
 
     user_balance: uint256 = 0
@@ -261,8 +267,8 @@ def _checkpoint_rewards(_user: address, _total_supply: uint256, _claim: bool, _r
 @internal
 def _checkpoint(addr: address):
     """
-    @notice Checkpoint for a user
-    @param addr User address
+    @notice Checkpoint for a user.
+    @param addr User address.
     """
     _period: int128 = self.period
     _period_time: uint256 = self.period_timestamp[_period]
@@ -314,9 +320,9 @@ def _checkpoint(addr: address):
 @external
 def user_checkpoint(addr: address) -> bool:
     """
-    @notice Record a checkpoint for `addr`
-    @param addr User address
-    @return bool success
+    @notice Record a checkpoint for `addr`.
+    @param addr User address.
+    @return bool success.
     """
     assert msg.sender in [addr, GAUGE_DISTRIBUTOR]  # dev: unauthorized
     self._checkpoint(addr)
@@ -327,9 +333,9 @@ def user_checkpoint(addr: address) -> bool:
 @external
 def claimable_tokens(addr: address) -> uint256:
     """
-    @notice Get the number of claimable tokens per user
-    @dev This function should be manually changed to "view" in the ABI
-    @return uint256 number of claimable tokens per user
+    @notice Get the number of claimable tokens per user.
+    @dev This function should be manually changed to "view" in the ABI.
+    @return uint256 number of claimable tokens per user.
     """
     self._checkpoint(addr)
     return self.integrate_fraction[addr] - GaugeDistributor(GAUGE_DISTRIBUTOR).distributed(addr, self)
@@ -339,10 +345,10 @@ def claimable_tokens(addr: address) -> uint256:
 @external
 def claimed_reward(_addr: address, _token: address) -> uint256:
     """
-    @notice Get the number of already-claimed reward tokens for a user
-    @param _addr Account to get reward amount for
-    @param _token Token to get reward amount for
-    @return uint256 Total amount of `_token` already claimed by `_addr`
+    @notice Get the number of already-claimed reward tokens for a user.
+    @param _addr Account to get reward amount for.
+    @param _token Token to get reward amount for.
+    @return uint256 Total amount of `_token` already claimed by `_addr`.
     """
     return self.claim_data[_addr][_token] % 2**128
 
@@ -351,10 +357,10 @@ def claimed_reward(_addr: address, _token: address) -> uint256:
 @external
 def claimable_reward(_user: address, _reward_token: address) -> uint256:
     """
-    @notice Get the number of claimable reward tokens for a user
-    @param _user Account to get reward amount for
-    @param _reward_token Token to get reward amount for
-    @return uint256 Claimable reward token amount
+    @notice Get the number of claimable reward tokens for a user.
+    @param _user Account to get reward amount for.
+    @param _reward_token Token to get reward amount for.
+    @return uint256 Claimable reward token amount.
     """
     integral: uint256 = self.reward_data[_reward_token].integral
     total_supply: uint256 = self.totalSupply
@@ -373,8 +379,8 @@ def claimable_reward(_user: address, _reward_token: address) -> uint256:
 def set_rewards_receiver(_receiver: address):
     """
     @notice Set the default reward receiver for the caller.
-    @dev When set to ZERO_ADDRESS, rewards are sent to the caller
-    @param _receiver Receiver address for any rewards claimed via `claim_rewards`
+    @dev When set to ZERO_ADDRESS, rewards are sent to the caller.
+    @param _receiver Receiver address for any rewards claimed via `claim_rewards`.
     """
     self.rewards_receiver[msg.sender] = _receiver
 
@@ -383,11 +389,11 @@ def set_rewards_receiver(_receiver: address):
 @nonreentrant('lock')
 def claim_rewards(_addr: address = msg.sender, _receiver: address = ZERO_ADDRESS):
     """
-    @notice Claim available reward tokens for `_addr`
-    @param _addr Address to claim for
+    @notice Claim available reward tokens for `_addr`.
+    @param _addr Address to claim for.
     @param _receiver Address to transfer rewards to - if set to
                      ZERO_ADDRESS, uses the default reward receiver
-                     for the caller
+                     for the caller.
     """
     if _receiver != ZERO_ADDRESS:
         assert _addr == msg.sender  # dev: cannot redirect when claiming for another user
@@ -418,10 +424,10 @@ def kick(addr: address):
 @nonreentrant('lock')
 def deposit(_value: uint256, _addr: address = msg.sender, _claim_rewards: bool = False):
     """
-    @notice Deposit `_value` LP tokens
-    @dev Depositting also claims pending reward tokens
-    @param _value Number of tokens to deposit
-    @param _addr Address to deposit for
+    @notice Deposit `_value` LP tokens.
+    @dev Depositting also claims pending reward tokens.
+    @param _value Number of tokens to deposit.
+    @param _addr Address to deposit for.
     """
 
     self._checkpoint(_addr)
@@ -449,9 +455,9 @@ def deposit(_value: uint256, _addr: address = msg.sender, _claim_rewards: bool =
 @nonreentrant('lock')
 def withdraw(_value: uint256, _claim_rewards: bool = False):
     """
-    @notice Withdraw `_value` LP tokens
-    @dev Withdrawing also claims pending reward tokens
-    @param _value Number of tokens to withdraw
+    @notice Withdraw `_value` LP tokens.
+    @dev Withdrawing also claims pending reward tokens.
+    @param _value Number of tokens to withdraw.
     """
     self._checkpoint(msg.sender)
 
@@ -501,8 +507,8 @@ def _transfer(_from: address, _to: address, _value: uint256):
 @nonreentrant('lock')
 def transfer(_to : address, _value : uint256) -> bool:
     """
-    @notice Transfer token for a specified address
-    @dev Transferring claims pending reward tokens for the sender and receiver
+    @notice Transfer token for a specified address.
+    @dev Transferring claims pending reward tokens for the sender and receiver.
     @param _to The address to transfer to.
     @param _value The amount to be transferred.
     """
@@ -534,15 +540,15 @@ def transferFrom(_from : address, _to : address, _value : uint256) -> bool:
 def approve(_spender : address, _value : uint256) -> bool:
     """
     @notice Approve the passed address to transfer the specified amount of
-            tokens on behalf of msg.sender
+            tokens on behalf of msg.sender .
     @dev Beware that changing an allowance via this method brings the risk
          that someone may use both the old and new allowance by unfortunate
          transaction ordering. This may be mitigated with the use of
          {incraseAllowance} and {decreaseAllowance}.
-         https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-    @param _spender The address which will transfer the funds
-    @param _value The amount of tokens that may be transferred
-    @return bool success
+         https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729 .
+    @param _spender The address which will transfer the funds.
+    @param _value The amount of tokens that may be transferred.
+    @return bool success.
     """
     self.allowance[msg.sender][_spender] = _value
     log Approval(msg.sender, _spender, _value)
@@ -589,7 +595,7 @@ def decreaseAllowance(_spender: address, _subtracted_value: uint256) -> bool:
 @external
 def add_reward(_reward_token: address, _distributor: address):
     """
-    @notice Set the active reward contract
+    @notice Set the active reward contract.
     """
     assert msg.sender == self.owner  # dev: only owner
 
@@ -648,9 +654,9 @@ def deposit_reward_token(_reward_token: address, _amount: uint256):
 @external
 def set_killed(_is_killed: bool):
     """
-    @notice Set the killed status for this contract
-    @dev When killed, the gauge always yields a rate of 0 and so cannot mint CRV
-    @param _is_killed Killed status to set
+    @notice Set the killed status for this contract.
+    @dev When killed, the gauge always yields a rate of 0 and so cannot mint KYO.
+    @param _is_killed Killed status to set.
     """
     assert msg.sender == self.owner
 
