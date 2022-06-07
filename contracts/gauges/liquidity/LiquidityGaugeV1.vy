@@ -130,7 +130,7 @@ owner: public(address)
 future_owner: public(address)
 
 @external
-def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address, _gauge_controller: address, _lp_token: address, _owner: address):
+def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address, _gauge_controller: address, _lp_token: address):
     """
     @notice Contract constructor.
     @param _lp_token Liquidity Pool contract address.
@@ -143,7 +143,7 @@ def __init__(_kyo: address, _voting_escrow: address, _gauge_distributor: address
     GAUGE_CONTROLLER = _gauge_controller
 
     self.lp_token = _lp_token
-    self.owner = _owner
+    self.owner = msg.sender
 
     symbol: String[26] = ERC20Extended(_lp_token).symbol()
     self.name = concat("Koyo.finance ", symbol, " Gauge Deposit")

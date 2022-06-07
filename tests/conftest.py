@@ -131,7 +131,6 @@ def three_gauges(
             gauge_distributor,
             gauge_controller,
             mock_lp_token,
-            accounts[0],
             {"from": accounts[0]},
         )
         for _ in range(3)
