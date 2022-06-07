@@ -7,8 +7,9 @@
 		"preinstall": "npm i -g ganache-cli@6.12.1",
 		"hardhat:compile": "hardhat compile",
 		"compile": "yarn hardhat:compile",
-		"postcompile": "yarn abis:clean",
-		"abis:clean": "fd \".*.json\" abis/ --exec bash -c 'jq \"map(del(.gas))\" {} | sponge {}'"
+		"postcompile": "yarn abis:clean && yarn abis:liquiditygaugev1:change_claimable_rewards_to_view",
+		"abis:clean": "fd \".*.json\" abis/ --exec bash -c 'jq \"map(del(.gas))\" {} | sponge {}'",
+    "abis:liquiditygaugev1:change_claimable_rewards_to_view": "jq 'map((select(.name==\"claimable_tokens\") | .stateMutability) |= \"view\")' ./abis/LiquidityGaugeV1.json | sponge ./abis/LiquidityGaugeV1.json"
 	},
 	"files": [
 		"typechain",

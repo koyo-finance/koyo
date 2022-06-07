@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
 		runOnCompile: true,
 		clear: true,
 		flat: true,
-		only: ['Koyo', 'Minter', 'SmartWalletWhitelist', 'VotingEscrow']
+		only: ['GaugeController', 'GaugeDistributor', 'LiquidityGaugeV1', 'Koyo', 'Minter', 'SmartWalletWhitelist', 'VotingEscrow']
 	}
 };
 
