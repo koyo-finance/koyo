@@ -17,7 +17,7 @@ GAUGE_TYPES = [
 
 # lp token, gauge weight
 POOL_TOKENS = {
-    "4Koyo": ("0x9F0a572be1Fcfe96E94C0a730C5F4bc2993fe3F6", 100),
+    "4Koyo": ("0xDAb3Fc342A242AdD09504bea790f9b026Aa1e709", 100),
 }
 
 

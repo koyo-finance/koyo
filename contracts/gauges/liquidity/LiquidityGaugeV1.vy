@@ -669,7 +669,7 @@ def commit_transfer_ownership(addr: address):
     @notice Transfer ownership of LiquidityGaugeV1 to `addr`.
     @param addr Address to have ownership transferred to.
     """
-    assert msg.sender == self.owner  # dev: admin only
+    assert msg.sender == self.owner  # dev: owner only
 
     self.future_owner = addr
     log CommitOwnership(addr)
@@ -681,7 +681,7 @@ def accept_transfer_ownership():
     @notice Accept a pending ownership transfer.
     """
     _owner: address = self.future_owner
-    assert msg.sender == _owner  # dev: future admin only
+    assert msg.sender == _owner  # dev: future owner only
 
     self.owner = _owner
     log ApplyOwnership(_owner)
