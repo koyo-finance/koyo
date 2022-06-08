@@ -5,6 +5,17 @@
 @license MIT
 """
 
+# Original idea and credit:
+# Curve Finance's Gauge Controller
+# https://resources.curve.fi/base-features/understanding-gauges
+# https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/GaugeController.vy
+# This contract is an almost-identical fork of Curve's contract.
+# veKYO is used instead of veCRV.
+
+# Kōyō Reviewer(s) / Contributor(s)
+# "perpetuum7": https://github.com/perpetuum7
+
+
 interface VotingEscrow:
     def get_last_user_slope(addr: address) -> int128: view
     def locked__end(addr: address) -> uint256: view

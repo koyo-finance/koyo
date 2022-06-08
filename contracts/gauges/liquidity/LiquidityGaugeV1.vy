@@ -5,6 +5,17 @@
 @license MIT
 """
 
+# Original idea and credit:
+# Curve Finance's Liquidity Gauge V4
+# https://resources.curve.fi/base-features/understanding-gauges
+# https://curve.readthedocs.io/dao-gauges.html#liquiditygauge
+# https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/gauges/LiquidityGaugeV4.vy
+# This contract is an almost-identical fork of Curve's contract.
+
+# Kōyō Reviewer(s) / Contributor(s)
+# "perpetuum7": https://github.com/perpetuum7
+
+
 from vyper.interfaces import ERC20
 
 implements: ERC20
