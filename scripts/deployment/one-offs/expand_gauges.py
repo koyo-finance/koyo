@@ -12,8 +12,6 @@ from brownie import (
 
 # lp token, gauge weight
 POOL_TOKENS = {
-    "KYO-ETH": ("0xf425eD6a3d48bf765853c8cD3Bf4B697af8D3B04", 1000),
-    "FETH": ("0x5EC75124616Dc136dEa5560A59512404a133209b", 500),
 }
 
 
